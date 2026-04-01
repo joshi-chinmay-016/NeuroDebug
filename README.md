@@ -281,19 +281,6 @@ docker exec -it neurodebug_backend bash   # shell into backend
 
 ---
 
-## Git setup
-
-```bash
-git init                    # already done
-git add .
-git commit -m "initial commit"
-
-# push to GitHub
-git remote add origin https://github.com/your-username/neurodebug.git
-git push -u origin main
-```
-
-> The `.env` file is in `.gitignore` — your API key will not be committed.
 
 ---
 
