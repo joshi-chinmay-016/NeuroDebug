@@ -66,7 +66,7 @@ if __name__ == "__main__":
   },
 ]
 
-const LS_KEY = 'neurodebug_openai_key'
+const LS_KEY = 'neurodebug_groq_key'
 const API    = import.meta.env.VITE_API_URL || ''
 
 // ── API call — sends user key in body ─────────────────────────────
@@ -125,20 +125,20 @@ function ApiKeyBar({ apiKey, setApiKey }) {
     inputRef.current?.focus()
   }
 
-  const isSet = apiKey && apiKey.trim().startsWith('sk-')
+  const isSet = apiKey && apiKey.trim().startsWith('gsk_')
 
   return (
     <div className="key-bar">
-      <label htmlFor="openai-key-input" className="key-label">
-        OpenAI key
+      <label htmlFor="groq-key-input" className="key-label">
+        Groq key
       </label>
       <div className="key-input-wrap">
         <input
           ref={inputRef}
-          id="openai-key-input"
+          id="groq-key-input"
           type={visible ? 'text' : 'password'}
           className="key-input"
-          placeholder="sk-..."
+          placeholder="gsk_..."
           value={apiKey}
           onChange={handleChange}
           autoComplete="off"
@@ -318,7 +318,7 @@ export default function App() {
           <h1>Python Code Debugger</h1>
           <p>
             Paste code below and hit <strong>Run analysis</strong>.
-            Uses static AST rules and GPT-4 to explain what's wrong.{' '}
+            Uses static AST rules and Groq to explain what's wrong.{' '}
             <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">API docs →</a>
           </p>
         </div>
@@ -472,7 +472,7 @@ export default function App() {
 
       {/* ── Footer ── */}
       <footer className="footer">
-        <span>NeuroDebug — static analysis + GPT-4 explanations</span>
+        <span>NeuroDebug — static analysis + Groq explanations</span>
         <div className="footer-links">
           <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">api docs</a>
           <a href="https://github.com" target="_blank" rel="noreferrer">github</a>
