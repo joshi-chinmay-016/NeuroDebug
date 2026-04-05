@@ -1,7 +1,9 @@
 # NeuroDebug
 
-A Python code debugger that combines static AST analysis with GPT-4 explanations.
+A Python code debugger that combines static AST analysis with Groq LLM explanations.
 Paste code, get a diagnosis. No code is ever executed — analysis only.
+
+![NeuroDebug Demo Run](screenshots/demo_run_result.png)
 
 ---
 
@@ -14,14 +16,14 @@ AST parser (parser.py)
     ↓
 Rule engine — 13 checks (rules.py)
     ↓
-GPT-4 explanation using your own API key (llm_engine.py)
+Groq LLM explanation using your own Groq API key (llm_engine.py)
     ↓
 merged result → frontend
 ```
 
 **Symbolic layer** catches things like undefined variables, division by zero, bare excepts, and mutable defaults — deterministically, without touching an LLM.
 
-**Neural layer** sends the code + symbolic findings to GPT-4 and gets back a plain-English explanation and a corrected code snippet.
+**Neural layer** sends the code + symbolic findings to Groq and gets back a plain-English explanation and a corrected code snippet.
 
 ---
 
@@ -33,7 +35,7 @@ neurodebug/
 │   ├── main.py           # FastAPI app — POST /debug
 │   ├── parser.py         # AST analysis
 │   ├── rules.py          # 13 static rules (R001–R013)
-│   ├── llm_engine.py     # OpenAI GPT-4 integration
+│   ├── llm_engine.py     # Groq LLM integration
 │   ├── utils.py          # merge symbolic + neural results
 │   ├── tests/
 │   │   └── test_debug.py
@@ -61,13 +63,13 @@ neurodebug/
 
 ## API key — how it works
 
-Each user enters their **own** OpenAI API key in the UI. It is:
+Each user enters their **own** Groq API key in the UI. It is:
 
 - stored in their browser's `localStorage` (never sent to the server except per-request)
 - sent as `api_key` in the POST body when they click "Run analysis"
-- used to create a per-request OpenAI client — so **their account pays, not yours**
+- used to create a per-request Groq client — so **their account pays, not yours**
 
-If no user key is provided, the backend falls back to the `OPENAI_API_KEY` in `.env` (if set). If neither is set, the symbolic layer still runs — only the GPT-4 explanation is skipped.
+If no user key is provided, the backend falls back to the `GROQ_API_KEY` in `.env` (if set). If neither is set, the symbolic layer still runs — only the Groq explanation is skipped.
 
 ---
 
@@ -110,7 +112,7 @@ pip install -r requirements.txt
 
 # optional — only needed if you want a server-side fallback key
 cp .env.example .env
-# edit .env and set OPENAI_API_KEY=sk-...
+# edit .env and set GROQ_API_KEY=gsk-...
 
 uvicorn main:app --reload --port 8000
 ```
@@ -141,7 +143,7 @@ pytest tests/ -v
 ## Docker
 
 ```bash
-# make sure backend/.env has OPENAI_API_KEY (optional — users can supply their own)
+# make sure backend/.env has GROQ_API_KEY (optional — users can supply their own)
 docker-compose up --build
 ```
 
@@ -232,7 +234,7 @@ cd neurodebug
 
 # optional server-side fallback key
 cat > backend/.env << EOF
-OPENAI_API_KEY=sk-...
+GROQ_API_KEY=gsk-...
 EOF
 ```
 
@@ -272,7 +274,7 @@ docker exec -it neurodebug_backend bash   # shell into backend
 |-|--|
 | Backend | FastAPI + Uvicorn |
 | Analysis | Python `ast` module |
-| AI | OpenAI GPT-4o |
+| AI | Groq Llama 3 |
 | Frontend | React 18 + Vite |
 | Editor | Monaco Editor |
 | Serving | nginx |
