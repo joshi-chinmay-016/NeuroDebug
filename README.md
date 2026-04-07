@@ -89,7 +89,7 @@ If no user key is provided, the backend falls back to the `GROQ_API_KEY` in `.en
 | R010 | BoolComparison | warning |
 | R011 | ShadowedBuiltin | warning |
 | R012 | SilentException | warning |
-| R013 | UnusedImport | info |
+| R013 | UnusedImport | info | 
 
 ---
 
