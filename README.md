@@ -1,13 +1,15 @@
 # NeuroDebug
 
 A Python code debugger that combines static AST analysis with Groq LLM explanations.
-Paste code, get a diagnosis. No code is ever executed — analysis only.
+Paste code, get a diagnosis and auto-generated tests. No code is ever executed — analysis only.
 
 ![NeuroDebug Demo Run](screenshots/demo_run_result.png)
 
 ---
 
 ## How it works
+
+### Debug Analysis
 
 ```
 your code
@@ -24,6 +26,20 @@ merged result → frontend
 **Symbolic layer** catches things like undefined variables, division by zero, bare excepts, and mutable defaults — deterministically, without touching an LLM.
 
 **Neural layer** sends the code + symbolic findings to Groq and gets back a plain-English explanation and a corrected code snippet.
+
+### Test Generation
+
+```
+your code
+    ↓
+AST parser (syntax validation)
+    ↓
+Groq LLM test generation
+    ↓
+pytest test cases + imports + setup → frontend
+```
+
+Automatically generate comprehensive pytest test cases covering happy paths, edge cases, and error conditions.
 
 ---
 
@@ -70,6 +86,26 @@ Each user enters their **own** Groq API key in the UI. It is:
 - used to create a per-request Groq client — so **their account pays, not yours**
 
 If no user key is provided, the backend falls back to the `GROQ_API_KEY` in `.env` (if set). If neither is set, the symbolic layer still runs — only the Groq explanation is skipped.
+
+---
+
+## Features
+
+### Debug Analysis
+- **Real-time feedback** on code errors
+- **13 static rules** for common Python mistakes (see rules table below)
+- **LLM-powered explanations** with corrected code suggestions
+- **Confidence scoring** to show how certain the diagnosis is
+
+### Test Generation
+- **Auto-generate pytest test cases** for any Python code
+- **Coverage includes**:
+  - Happy path scenarios
+  - Edge cases and boundary values
+  - Error handling / exception cases
+  - Type variations
+- **Includes imports and setup code** ready to copy-paste
+- **Customizable** — edit generated tests based on your requirements
 
 ---
 
@@ -179,6 +215,38 @@ docker-compose up --build
     }
   ],
   "raw_errors": ["[R002] Name 'undefined_var' is used but never defined in this snippet."]
+}
+```
+
+### `POST /generate-tests`
+
+Generate pytest test cases for Python code.
+
+```json
+// request
+{
+  "code": "def add(a, b):\n    return a + b",
+  "api_key": "gsk-..."   // optional — user's own key
+}
+
+// response
+{
+  "success": true,
+  "test_cases": [
+    {
+      "test_name": "test_add_positive_numbers",
+      "test_code": "def test_add_positive_numbers():\n    assert add(2, 3) == 5",
+      "description": "Test adding two positive numbers"
+    },
+    {
+      "test_name": "test_add_with_zero",
+      "test_code": "def test_add_with_zero():\n    assert add(5, 0) == 5",
+      "description": "Test adding with zero"
+    }
+  ],
+  "imports": "import pytest",
+  "setup_code": "",
+  "error": null
 }
 ```
 
