@@ -298,6 +298,20 @@ body {
   transform: none;
 }
 
+.btn-secondary {
+  background: var(--green);
+  color: #fff;
+  padding: 6px 14px;
+  box-shadow: 0 1px 3px rgba(22,163,74,0.3);
+}
+.btn-secondary:hover { background: #15803d; }
+.btn-secondary:disabled {
+  background: #86efac;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--text-2);
@@ -697,4 +711,60 @@ body {
 }
 .key-ok      { color: var(--green); }
 .key-missing { color: var(--text-3); }
+
+/* ── Test Results ────────────────────────────────────────────────── */
+.tests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.test-item {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.test-item:last-child { border-bottom: none; }
+
+.test-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.test-name {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--blue);
+}
+
+.test-desc {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.test-code-wrap {
+  position: relative;
+  background: var(--bg-code);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.test-code {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #a6e3a1;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
 

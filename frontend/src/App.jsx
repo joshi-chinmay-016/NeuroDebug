@@ -77,6 +77,13 @@ async function runDebug(code, apiKey) {
   return res.data
 }
 
+async function runTestGeneration(code, apiKey) {
+  const body = { code }
+  if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
+  const res = await axios.post(`${API}/generate-tests`, body, { timeout: 30000 })
+  return res.data
+}
+
 // ── Badge helpers ─────────────────────────────────────────────────
 function badgeClass(errorType) {
   if (!errorType || errorType === 'Clean') return 'badge-clean'
@@ -247,6 +254,62 @@ function Results({ data }) {
   )
 }
 
+// ── Test Generation Results ───────────────────────────────────────
+function TestResults({ data }) {
+  return (
+    <>
+      <div className="result-block">
+        <div className="result-block-header">
+          generated test cases
+          <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>
+            {data.test_cases?.length || 0} tests
+          </span>
+        </div>
+        <div className="result-block-body" style={{ padding: 0 }}>
+          <div className="tests-list">
+            {data.test_cases?.map((test, i) => (
+              <div key={i} className="test-item">
+                <div className="test-header">
+                  <span className="test-name">{test.test_name}</span>
+                  {test.description && <span className="test-desc">{test.description}</span>}
+                </div>
+                <div className="test-code-wrap">
+                  <pre className="test-code">{test.test_code}</pre>
+                  <CopyBtn text={test.test_code} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {data.imports && (
+        <div className="result-block">
+          <div className="result-block-header">imports</div>
+          <div className="result-block-body" style={{ padding: 0 }}>
+            <div className="fix-wrap">
+              <pre className="fix-pre">{data.imports}</pre>
+              <CopyBtn text={data.imports} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {data.setup_code && (
+        <div className="result-block">
+          <div className="result-block-header">setup code</div>
+          <div className="result-block-body" style={{ padding: 0 }}>
+            <div className="fix-wrap">
+              <pre className="fix-pre">{data.setup_code}</pre>
+              <CopyBtn text={data.setup_code} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ── App ───────────────────────────────────────────────────────────
 export default function App() {
   const [code, setCode]         = useState(SAMPLES[0].code)
@@ -254,6 +317,9 @@ export default function App() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
   const [apiStatus, setApiStatus] = useState('checking')
+  const [testResult, setTestResult] = useState(null)
+  const [testLoading, setTestLoading] = useState(false)
+  const [testError, setTestError] = useState(null)
 
   // Load saved key from localStorage on mount
   const [apiKey, setApiKey] = useState(() => {
@@ -284,6 +350,25 @@ export default function App() {
       setLoading(false)
     }
   }, [code, apiKey, loading])
+
+  const handleGenerateTests = useCallback(async () => {
+    if (!code.trim() || testLoading) return
+    setTestLoading(true)
+    setTestError(null)
+    setTestResult(null)
+    try {
+      const data = await runTestGeneration(code, apiKey)
+      setTestResult(data)
+    } catch (err) {
+      setTestError(
+        err.response?.data?.detail ||
+        err.message ||
+        'Could not reach the backend.'
+      )
+    } finally {
+      setTestLoading(false)
+    }
+  }, [code, apiKey, testLoading])
 
   const onKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -388,13 +473,35 @@ export default function App() {
                     'Run analysis'
                   )}
                 </button>
+                <button
+                  id="test-gen-btn"
+                  className="btn btn-secondary"
+                  onClick={handleGenerateTests}
+                  disabled={testLoading || !code.trim()}
+                  title="Generate pytest test cases for this code"
+                >
+                  {testLoading ? (
+                    <>
+                      <div className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} />
+                      generating…
+                    </>
+                  ) : (
+                    '✓ Generate Tests'
+                  )}
+                </button>
               </div>
               <div className="toolbar-right">
                 <span className="shortcut-hint">ctrl+enter</span>
                 <button
                   id="clear-btn"
                   className="btn btn-ghost"
-                  onClick={() => { setCode(''); setResult(null); setError(null) }}
+                  onClick={() => { 
+                    setCode(''); 
+                    setResult(null); 
+                    setError(null);
+                    setTestResult(null);
+                    setTestError(null);
+                  }}
                 >
                   clear
                 </button>
@@ -448,6 +555,13 @@ export default function App() {
                 </div>
               )}
 
+              {testLoading && (
+                <div className="spinner-wrap" role="status">
+                  <div className="spinner" />
+                  <span>generating test cases…</span>
+                </div>
+              )}
+
               {!loading && error && (
                 <div className="error-banner" role="alert">
                   <span>⚠</span>
@@ -455,13 +569,22 @@ export default function App() {
                 </div>
               )}
 
+              {!testLoading && testError && (
+                <div className="error-banner" role="alert">
+                  <span>⚠</span>
+                  <span>{testError}</span>
+                </div>
+              )}
+
               {!loading && result && <Results data={result} />}
 
-              {!loading && !result && !error && (
+              {!testLoading && testResult && <TestResults data={testResult} />}
+
+              {!loading && !testLoading && !result && !testResult && !error && !testError && (
                 <div className="empty-state">
                   <div className="empty-arrow">↑</div>
                   <p className="empty-hint">
-                    results will appear here after you click "Run analysis"
+                    results will appear here after you click "Run analysis" or "Generate Tests"
                   </p>
                 </div>
               )}
