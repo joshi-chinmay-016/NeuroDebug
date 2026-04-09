@@ -45,6 +45,34 @@ Rules:
 - Be concise but thorough. Avoid hallucinating bugs that don't exist.
 """
 
+_TEST_GENERATION_SYSTEM_PROMPT = """You are NeuroDebug's test generation expert. Your task is to generate comprehensive pytest test cases for Python code.
+
+Your response MUST be valid JSON with exactly these keys:
+{
+  "test_cases": [
+    {
+      "test_name": "<descriptive test function name following pytest conventions>",
+      "test_code": "<the complete test code as a string, properly formatted>",
+      "description": "<brief description of what this test checks>"
+    }
+  ],
+  "imports": "<string containing all necessary imports for the tests>",
+  "setup_code": "<optional setup code to run before tests, or empty string>"
+}
+
+Rules:
+- Generate at least 5 diverse test cases covering:
+  * Happy path scenarios (normal valid inputs)
+  * Edge cases (boundary values, empty inputs, None, etc.)
+  * Error handling (invalid inputs, exceptions)
+  * Type variations (if applicable)
+- Each test_code must be a single, self-contained function definition string
+- The imports string should contain all pytest and other imports needed
+- setup_code can contain fixture definitions or helper functions
+- Use descriptive assertion messages
+- Follow pytest naming conventions (test_* function names)
+"""
+
 # ──────────────────────────────────────────────────────────────────
 # Public API
 # ──────────────────────────────────────────────────────────────────
@@ -116,6 +144,64 @@ async def get_llm_analysis(
         return _fallback_response(symbolic_issues)
 
 
+async def generate_test_cases(
+    code: str,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """
+    Generate comprehensive pytest test cases for the given code.
+
+    Returns a dict with test_cases, imports, and setup_code.
+    """
+    # Pick which key to use
+    key_to_use = (api_key or "").strip() or _server_key
+
+    if not key_to_use:
+        logger.warning("No API key provided — cannot generate tests without LLM.")
+        return _test_generation_error("No API key provided. Please supply a Groq API key.")
+
+    # Validate key looks plausible
+    if not key_to_use.startswith("gsk_"):
+        return _test_generation_error(
+            "That doesn't look like a valid Groq key (should start with 'gsk_'). "
+            "Please check and try again."
+        )
+
+    client = AsyncGroq(api_key=key_to_use)
+    source = "user_key" if (api_key or "").strip() else "server_key"
+    logger.info("Test generation LLM call using %s", source)
+
+    user_prompt = _build_test_generation_prompt(code)
+
+    try:
+        response = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": _TEST_GENERATION_SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=2048,
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content
+        logger.debug("Raw test generation response: %s", raw[:200])
+        return _parse_test_generation_response(raw)
+
+    except groq.AuthenticationError:
+        logger.error("Groq authentication failed for test generation.")
+        return _test_generation_error("Invalid Groq API key.")
+    except groq.RateLimitError:
+        logger.error("Groq rate limit exceeded for test generation.")
+        return _test_generation_error("Groq rate limit exceeded. Try again in a moment.")
+    except groq.APIConnectionError as exc:
+        logger.error("Groq connection error during test generation: %s", exc)
+        return _test_generation_error(f"Could not connect to Groq: {exc}")
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Unexpected error during test generation: %s", exc)
+        return _test_generation_error(f"Test generation failed: {exc}")
+
+
 # ──────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────
@@ -184,4 +270,49 @@ def _error_response(msg: str) -> dict[str, Any]:
         "suggested_fix":    "Please check your API key and network connection.",
         "confidence_score": 0.0,
         "source":           "error",
+    }
+
+
+def _build_test_generation_prompt(code: str) -> str:
+    """Build the prompt for test case generation."""
+    return f"""Please generate comprehensive pytest test cases for the following Python code:
+
+```python
+{code}
+```
+
+Analyse the code's functions, methods, and edge cases. Generate at least 5 diverse test cases covering:
+1. Happy path scenarios with valid inputs
+2. Edge cases and boundary values
+3. Error conditions and invalid inputs
+4. Type variations if applicable
+
+Return your test cases as JSON."""
+
+
+def _parse_test_generation_response(raw: str) -> dict[str, Any]:
+    """Parse the LLM response for test generation."""
+    try:
+        data = json.loads(raw)
+        return {
+            "test_cases": data.get("test_cases", []),
+            "imports": str(data.get("imports", "import pytest")),
+            "setup_code": str(data.get("setup_code", "")),
+            "source": "llm",
+            "success": True,
+        }
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.warning("Failed to parse test generation JSON: %s", exc)
+        return _test_generation_error("LLM returned malformed JSON for test cases.")
+
+
+def _test_generation_error(msg: str) -> dict[str, Any]:
+    """Return error response for test generation."""
+    return {
+        "test_cases": [],
+        "imports": "",
+        "setup_code": "",
+        "error": msg,
+        "source": "error",
+        "success": False,
     }
