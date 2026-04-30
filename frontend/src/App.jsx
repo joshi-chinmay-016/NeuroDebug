@@ -71,8 +71,11 @@ if __name__ == "__main__":
 ]
 
 const LS_KEY = 'neurodebug_groq_key'
+<<<<<<< HEAD
 const LEGACY_LS_KEY = 'neurodebug_openai_key'
 const HISTORY_KEY = 'neurodebug_saved_outputs'
+=======
+>>>>>>> e7698b0119407c2ead5d7fa76051f343e28ff1ce
 const API    = import.meta.env.VITE_API_URL || ''
 
 // ── API call — sends user key in body ─────────────────────────────
@@ -80,6 +83,13 @@ async function runDebug(code, apiKey) {
   const body = { code }
   if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
   const res = await axios.post(`${API}/debug`, body, { timeout: 30000 })
+  return res.data
+}
+
+async function runTestGeneration(code, apiKey) {
+  const body = { code }
+  if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
+  const res = await axios.post(`${API}/generate-tests`, body, { timeout: 30000 })
   return res.data
 }
 
@@ -308,6 +318,7 @@ function Results({ data }) {
   )
 }
 
+<<<<<<< HEAD
 // ── Landing Page Component ─────────────────────────────────────────
 function HistorySection({ history, onDownload }) {
   return (
@@ -319,6 +330,74 @@ function HistorySection({ history, onDownload }) {
         </div>
         <span className="history-count">{history.length}</span>
       </div>
+=======
+// ── Test Generation Results ───────────────────────────────────────
+function TestResults({ data }) {
+  return (
+    <>
+      <div className="result-block">
+        <div className="result-block-header">
+          generated test cases
+          <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>
+            {data.test_cases?.length || 0} tests
+          </span>
+        </div>
+        <div className="result-block-body" style={{ padding: 0 }}>
+          <div className="tests-list">
+            {data.test_cases?.map((test, i) => (
+              <div key={i} className="test-item">
+                <div className="test-header">
+                  <span className="test-name">{test.test_name}</span>
+                  {test.description && <span className="test-desc">{test.description}</span>}
+                </div>
+                <div className="test-code-wrap">
+                  <pre className="test-code">{test.test_code}</pre>
+                  <CopyBtn text={test.test_code} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {data.imports && (
+        <div className="result-block">
+          <div className="result-block-header">imports</div>
+          <div className="result-block-body" style={{ padding: 0 }}>
+            <div className="fix-wrap">
+              <pre className="fix-pre">{data.imports}</pre>
+              <CopyBtn text={data.imports} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {data.setup_code && (
+        <div className="result-block">
+          <div className="result-block-header">setup code</div>
+          <div className="result-block-body" style={{ padding: 0 }}>
+            <div className="fix-wrap">
+              <pre className="fix-pre">{data.setup_code}</pre>
+              <CopyBtn text={data.setup_code} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ── App ───────────────────────────────────────────────────────────
+export default function App() {
+  const [code, setCode]         = useState(SAMPLES[0].code)
+  const [result, setResult]     = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState(null)
+  const [apiStatus, setApiStatus] = useState('checking')
+  const [testResult, setTestResult] = useState(null)
+  const [testLoading, setTestLoading] = useState(false)
+  const [testError, setTestError] = useState(null)
+>>>>>>> e7698b0119407c2ead5d7fa76051f343e28ff1ce
 
       {history.length === 0 ? (
         <p className="history-empty">Saved analysis outputs will appear here.</p>
@@ -424,6 +503,25 @@ function Dashboard({
   handleDebug
 }) {
   const { isDark } = useTheme()
+
+  const handleGenerateTests = useCallback(async () => {
+    if (!code.trim() || testLoading) return
+    setTestLoading(true)
+    setTestError(null)
+    setTestResult(null)
+    try {
+      const data = await runTestGeneration(code, apiKey)
+      setTestResult(data)
+    } catch (err) {
+      setTestError(
+        err.response?.data?.detail ||
+        err.message ||
+        'Could not reach the backend.'
+      )
+    } finally {
+      setTestLoading(false)
+    }
+  }, [code, apiKey, testLoading])
 
   const onKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -531,13 +629,35 @@ function Dashboard({
                     'Run analysis'
                   )}
                 </button>
+                <button
+                  id="test-gen-btn"
+                  className="btn btn-secondary"
+                  onClick={handleGenerateTests}
+                  disabled={testLoading || !code.trim()}
+                  title="Generate pytest test cases for this code"
+                >
+                  {testLoading ? (
+                    <>
+                      <div className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} />
+                      generating…
+                    </>
+                  ) : (
+                    '✓ Generate Tests'
+                  )}
+                </button>
               </div>
               <div className="toolbar-right">
                 <span className="shortcut-hint">ctrl+enter</span>
                 <button
                   id="clear-btn"
                   className="btn btn-ghost"
-                  onClick={() => { setCode(''); setResult(null); setError(null) }}
+                  onClick={() => { 
+                    setCode(''); 
+                    setResult(null); 
+                    setError(null);
+                    setTestResult(null);
+                    setTestError(null);
+                  }}
                 >
                   clear
                 </button>
@@ -595,6 +715,13 @@ function Dashboard({
                 </div>
               )}
 
+              {testLoading && (
+                <div className="spinner-wrap" role="status">
+                  <div className="spinner" />
+                  <span>generating test cases…</span>
+                </div>
+              )}
+
               {!loading && error && (
                 <div className="error-banner" role="alert">
                   <span>⚠</span>
@@ -602,13 +729,22 @@ function Dashboard({
                 </div>
               )}
 
+              {!testLoading && testError && (
+                <div className="error-banner" role="alert">
+                  <span>⚠</span>
+                  <span>{testError}</span>
+                </div>
+              )}
+
               {!loading && result && <Results data={result} />}
 
-              {!loading && !result && !error && (
+              {!testLoading && testResult && <TestResults data={testResult} />}
+
+              {!loading && !testLoading && !result && !testResult && !error && !testError && (
                 <div className="empty-state">
                   <div className="empty-arrow">↑</div>
                   <p className="empty-hint">
-                    results will appear here after you click "Run analysis"
+                    results will appear here after you click "Run analysis" or "Generate Tests"
                   </p>
                 </div>
               )}
@@ -618,7 +754,11 @@ function Dashboard({
       </main>
 
       <footer className="footer">
+<<<<<<< HEAD
         <span>NeuroDebug - static analysis + Groq explanations</span>
+=======
+        <span>NeuroDebug — static analysis + Groq explanations</span>
+>>>>>>> e7698b0119407c2ead5d7fa76051f343e28ff1ce
         <div className="footer-links">
           <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">api docs</a>
           <a href="https://github.com" target="_blank" rel="noreferrer">github</a>

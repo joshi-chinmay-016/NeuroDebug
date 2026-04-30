@@ -8,7 +8,11 @@ from fastapi.testclient import TestClient
 
 # Import after creating test .env
 import os
+<<<<<<< HEAD
 os.environ.setdefault("GROQ_API_KEY", "gsk_test_key")
+=======
+os.environ.setdefault("GROQ_API_KEY", "test-key")
+>>>>>>> e7698b0119407c2ead5d7fa76051f343e28ff1ce
 
 from main import app
 
