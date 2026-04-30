@@ -49,7 +49,7 @@ app.add_middleware(
 # ──────────────────────────────────────────────────────────────────
 class DebugRequest(BaseModel):
     code: str
-    api_key: str | None = None   # user supplies their own OpenAI key
+    api_key: str | None = None   # user supplies their own Groq key
 
 
 class DebugResponse(BaseModel):

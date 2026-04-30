@@ -1,6 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import axios from 'axios'
 import Editor from '@monaco-editor/react'
+import BlurText from './components/BlurText'
+import SplashCursor from './components/SplashCursor'
+import ThemeToggle from './components/ThemeToggle'
+import { useTheme } from './components/ThemeProvider'
 
 // ── Sample snippets ───────────────────────────────────────────────
 const SAMPLES = [
@@ -66,7 +70,9 @@ if __name__ == "__main__":
   },
 ]
 
-const LS_KEY = 'neurodebug_openai_key'
+const LS_KEY = 'neurodebug_groq_key'
+const LEGACY_LS_KEY = 'neurodebug_openai_key'
+const HISTORY_KEY = 'neurodebug_saved_outputs'
 const API    = import.meta.env.VITE_API_URL || ''
 
 // ── API call — sends user key in body ─────────────────────────────
@@ -94,6 +100,58 @@ function issueIcon(sev) {
 }
 
 // ── Copy button ───────────────────────────────────────────────────
+function safeHistory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    return Array.isArray(saved) ? saved : []
+  } catch (_) {
+    return []
+  }
+}
+
+function formatSavedOutput(item) {
+  const issues = item.result.symbolic_issues?.length
+    ? item.result.symbolic_issues
+        .map((issue) => `- [${issue.severity}] ${issue.rule_id}: ${issue.message}`)
+        .join('\n')
+    : '- No symbolic issues reported.'
+
+  return `# NeuroDebug Analysis
+
+Saved: ${new Date(item.savedAt).toLocaleString()}
+Error type: ${item.result.error_type}
+Confidence: ${Math.round(item.result.confidence_score * 100)}%
+
+## Code
+\`\`\`python
+${item.code}
+\`\`\`
+
+## Explanation
+${item.result.explanation}
+
+## Suggested Fix
+${item.result.suggested_fix || 'No suggested fix returned.'}
+
+## Symbolic Issues
+${issues}
+`
+}
+
+function downloadSavedOutput(item) {
+  const blob = new Blob([formatSavedOutput(item)], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  const stamp = new Date(item.savedAt).toISOString().replace(/[:.]/g, '-')
+
+  link.href = url
+  link.download = `neurodebug-analysis-${stamp}.md`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 function CopyBtn({ text, className = 'copy-btn-sm' }) {
   const [did, setDid] = useState(false)
   const copy = async () => {
@@ -121,24 +179,27 @@ function ApiKeyBar({ apiKey, setApiKey }) {
 
   const handleClear = () => {
     setApiKey('')
-    try { localStorage.removeItem(LS_KEY) } catch (_) {}
+    try {
+      localStorage.removeItem(LS_KEY)
+      localStorage.removeItem(LEGACY_LS_KEY)
+    } catch (_) {}
     inputRef.current?.focus()
   }
 
-  const isSet = apiKey && apiKey.trim().startsWith('sk-')
+  const isSet = apiKey && apiKey.trim().startsWith('gsk_')
 
   return (
     <div className="key-bar">
-      <label htmlFor="openai-key-input" className="key-label">
-        OpenAI key
+      <label htmlFor="groq-key-input" className="key-label">
+        Groq key
       </label>
       <div className="key-input-wrap">
         <input
           ref={inputRef}
-          id="openai-key-input"
+          id="groq-key-input"
           type={visible ? 'text' : 'password'}
           className="key-input"
-          placeholder="sk-..."
+          placeholder="gsk_..."
           value={apiKey}
           onChange={handleChange}
           autoComplete="off"
@@ -165,7 +226,7 @@ function ApiKeyBar({ apiKey, setApiKey }) {
         )}
       </div>
       <span className={`key-status ${isSet ? 'key-ok' : 'key-missing'}`}>
-        {isSet ? '✓ set' : 'not set — AI explanation will be skipped'}
+        {isSet ? 'set' : 'not set - AI explanation will be skipped'}
       </span>
     </div>
   )
@@ -247,43 +308,122 @@ function Results({ data }) {
   )
 }
 
-// ── App ───────────────────────────────────────────────────────────
-export default function App() {
-  const [code, setCode]         = useState(SAMPLES[0].code)
-  const [result, setResult]     = useState(null)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState(null)
-  const [apiStatus, setApiStatus] = useState('checking')
+// ── Landing Page Component ─────────────────────────────────────────
+function HistorySection({ history, onDownload }) {
+  return (
+    <section className="history-section" id="history">
+      <div className="history-header">
+        <div>
+          <p className="history-kicker">History</p>
+          <h2>Saved outputs</h2>
+        </div>
+        <span className="history-count">{history.length}</span>
+      </div>
 
-  // Load saved key from localStorage on mount
-  const [apiKey, setApiKey] = useState(() => {
-    try { return localStorage.getItem(LS_KEY) || '' } catch (_) { return '' }
-  })
+      {history.length === 0 ? (
+        <p className="history-empty">Saved analysis outputs will appear here.</p>
+      ) : (
+        <div className="history-list">
+          {history.map((item) => (
+            <article className="history-item" key={item.id}>
+              <div className="history-item-main">
+                <span className={`error-badge ${badgeClass(item.result.error_type)}`}>
+                  {item.result.error_type}
+                </span>
+                <p className="history-summary">{item.result.explanation}</p>
+                <span className="history-date">{new Date(item.savedAt).toLocaleString()}</span>
+              </div>
+              <button type="button" className="btn btn-ghost history-download" onClick={() => onDownload(item)}>
+                download
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
 
-  useEffect(() => {
-    axios.get(`${API}/health`, { timeout: 4000 })
-      .then(() => setApiStatus('online'))
-      .catch(() => setApiStatus('offline'))
-  }, [])
+function LandingPage({ onEnter }) {
+  const aboutSectionRef = useRef(null)
 
-  const handleDebug = useCallback(async () => {
-    if (!code.trim() || loading) return
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const data = await runDebug(code, apiKey)
-      setResult(data)
-    } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-        err.message ||
-        'Could not reach the backend.'
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [code, apiKey, loading])
+  const handleAnimationComplete = () => {
+    console.log('Animation completed!')
+  }
+
+  const scrollToAbout = () => {
+    aboutSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  return (
+    <div className="landing-container">
+      <SplashCursor 
+        DENSITY_DISSIPATION={3}
+        VELOCITY_DISSIPATION={5}
+        PRESSURE={0.4}
+        CURL={33}
+        COLOR="#44ef58"
+      />
+
+      <div className="landing-nav">
+        <button type="button" className="landing-nav-link" onClick={scrollToAbout}>
+          About
+        </button>
+        <ThemeToggle />
+        <button type="button" className="landing-cta-btn" onClick={onEnter}>
+          Debug your code
+        </button>
+      </div>
+      
+      <section className="hero-section">
+        <div className="hero-text-container" onClick={onEnter}>
+          <BlurText
+            text="Neuro-Debug"
+            delay={140}
+            animateBy="letters"
+            direction="bottom"
+            onAnimationComplete={handleAnimationComplete}
+            className="hero-text mb-8"
+          />
+        </div>
+        
+        <div className="scroll-indicator">
+          <div className="scroll-dot" />
+        </div>
+      </section>
+
+      <section ref={aboutSectionRef} className="developer-card-section">
+        <div className="developer-card">
+          <p className="developer-eyebrow">Meet the developer</p>
+          <span className="developer-name">Chinmay Joshi</span>
+          <span className="developer-role">FullStack Developer</span>
+          
+          <div className="future-content-placeholder">
+            {/* Space for future texts */}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+// ── Dashboard Component ───────────────────────────────────────────
+function Dashboard({ 
+  code, setCode, 
+  result, setResult, 
+  loading, setLoading, 
+  error, setError, 
+  apiStatus, setApiStatus,
+  apiKey, setApiKey,
+  history,
+  historyOpen,
+  saveStatus,
+  onToggleHistory,
+  onSaveResult,
+  onDownloadHistoryItem,
+  handleDebug
+}) {
+  const { isDark } = useTheme()
 
   const onKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -294,8 +434,6 @@ export default function App() {
 
   return (
     <div className="app" onKeyDown={onKeyDown}>
-
-      {/* ── Header ── */}
       <header className="header">
         <div className="header-inner">
           <a href="/" className="logo">
@@ -303,6 +441,11 @@ export default function App() {
             <span className="logo-name">NeuroDebug</span>
           </a>
           <div className="header-right">
+            <button type="button" className="history-nav-btn" onClick={onToggleHistory}>
+              History
+              <span>{history.length}</span>
+            </button>
+            <ThemeToggle />
             <div className="api-status" title="Backend API">
               <span className={`status-dot ${apiStatus}`} />
               <span>api {apiStatus}</span>
@@ -312,23 +455,23 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Main ── */}
       <main className="main">
         <div className="page-heading">
           <h1>Python Code Debugger</h1>
           <p>
             Paste code below and hit <strong>Run analysis</strong>.
-            Uses static AST rules and GPT-4 to explain what's wrong.{' '}
+            Uses static AST rules and Groq to explain what's wrong.{' '}
             <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">API docs →</a>
           </p>
         </div>
 
-        {/* ── API key bar — above the workspace ── */}
         <ApiKeyBar apiKey={apiKey} setApiKey={setApiKey} />
 
-        <div className="workspace">
+        {historyOpen && (
+          <HistorySection history={history} onDownload={onDownloadHistoryItem} />
+        )}
 
-          {/* ── Left: editor ── */}
+        <div className="workspace">
           <div className="panel">
             <div className="panel-titlebar">
               <div className="panel-titlebar-left">
@@ -348,7 +491,7 @@ export default function App() {
                 defaultLanguage="python"
                 value={code}
                 onChange={(v) => setCode(v || '')}
-                theme="vs-dark"
+                theme={isDark ? 'vs-dark' : 'light'}
                 options={{
                   fontSize: 13,
                   fontFamily: "'JetBrains Mono', monospace",
@@ -422,7 +565,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── Right: output ── */}
           <div className="panel" role="region" aria-label="Analysis output">
             <div className="panel-titlebar">
               <div className="panel-titlebar-left">
@@ -434,9 +576,14 @@ export default function App() {
                 <span className="panel-label">output</span>
               </div>
               {result && (
-                <span className={`error-badge ${badgeClass(result.error_type)}`}>
-                  {result.error_type}
-                </span>
+                <div className="output-actions">
+                  <button type="button" className="save-output-btn" onClick={onSaveResult}>
+                    {saveStatus || 'save output'}
+                  </button>
+                  <span className={`error-badge ${badgeClass(result.error_type)}`}>
+                    {result.error_type}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -470,14 +617,118 @@ export default function App() {
         </div>
       </main>
 
-      {/* ── Footer ── */}
       <footer className="footer">
-        <span>NeuroDebug — static analysis + GPT-4 explanations</span>
+        <span>NeuroDebug - static analysis + Groq explanations</span>
         <div className="footer-links">
           <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">api docs</a>
           <a href="https://github.com" target="_blank" rel="noreferrer">github</a>
         </div>
       </footer>
     </div>
+  )
+}
+
+// ── App ───────────────────────────────────────────────────────────
+export default function App() {
+  const [showApp, setShowApp]   = useState(false)
+  const [code, setCode]         = useState(SAMPLES[0].code)
+  const [result, setResult]     = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState(null)
+  const [apiStatus, setApiStatus] = useState('checking')
+  const [history, setHistory] = useState(safeHistory)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('')
+
+  const [apiKey, setApiKey] = useState(() => {
+    try {
+      const storedGroqKey = localStorage.getItem(LS_KEY)
+      if (storedGroqKey) return storedGroqKey
+
+      const legacyKey = localStorage.getItem(LEGACY_LS_KEY)
+      if (legacyKey?.startsWith('gsk_')) {
+        localStorage.setItem(LS_KEY, legacyKey)
+        return legacyKey
+      }
+
+      return ''
+    } catch (_) {
+      return ''
+    }
+  })
+
+  useEffect(() => {
+    axios.get(`${API}/health`, { timeout: 4000 })
+      .then(() => setApiStatus('online'))
+      .catch(() => setApiStatus('offline'))
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    } catch (_) {}
+  }, [history])
+
+  const handleDebug = useCallback(async () => {
+    if (!code.trim() || loading) return
+    setLoading(true)
+    setError(null)
+    setResult(null)
+    setSaveStatus('')
+    try {
+      const data = await runDebug(code, apiKey)
+      setResult(data)
+    } catch (err) {
+      setError(
+        err.response?.data?.detail ||
+        err.message ||
+        'Could not reach the backend.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [code, apiKey, loading])
+
+  const handleSaveResult = useCallback(() => {
+    if (!result) return
+
+    const item = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      savedAt: new Date().toISOString(),
+      code,
+      result,
+    }
+
+    setHistory((current) => [item, ...current].slice(0, 20))
+    setHistoryOpen(true)
+    setSaveStatus('saved')
+    downloadSavedOutput(item)
+    setTimeout(() => setSaveStatus(''), 1800)
+  }, [code, result])
+
+  const handleDownloadHistoryItem = useCallback((item) => {
+    downloadSavedOutput(item)
+  }, [])
+
+  if (!showApp) {
+    return <LandingPage onEnter={() => setShowApp(true)} />
+  }
+
+  return (
+    <Dashboard 
+      code={code} setCode={setCode}
+      result={result} setResult={setResult}
+      loading={loading} setLoading={setLoading}
+      error={error} setError={setError}
+      apiStatus={apiStatus} setApiStatus={setApiStatus}
+      apiKey={apiKey} setApiKey={setApiKey}
+      history={history}
+      historyOpen={historyOpen}
+      saveStatus={saveStatus}
+      onToggleHistory={() => setHistoryOpen(open => !open)}
+      onSaveResult={handleSaveResult}
+      onDownloadHistoryItem={handleDownloadHistoryItem}
+      handleDebug={handleDebug}
+    />
   )
 }

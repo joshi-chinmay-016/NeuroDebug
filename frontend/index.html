@@ -3,11 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="NeuroDebug — Python code debugger using static analysis and GPT-4 explanations." />
+    <meta
+      name="description"
+      content="NeuroDebug - Python code debugger using static analysis and Groq explanations."
+    />
+    <script>
+      (() => {
+        const storageKey = 'neurodebug-theme'
+        const isValidTheme = (value) => value === 'light' || value === 'dark'
+        const fallbackTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+
+        let theme = fallbackTheme
+
+        try {
+          const storedTheme = window.localStorage.getItem(storageKey)
+          if (isValidTheme(storedTheme)) {
+            theme = storedTheme
+          }
+        } catch (_) {}
+
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
     <title>NeuroDebug</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

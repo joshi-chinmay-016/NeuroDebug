@@ -95,6 +95,7 @@ class _ASTVisitor(ast.NodeVisitor):
         self.functions:             list[str] = []
         self.classes:               list[str] = []
         self.assignments:           set[str]  = set()
+        self.parameters:            set[str]  = set()
         self.used_names:            set[str]  = set()
         self.return_outside_function: bool    = False
         self.bare_excepts:          int       = 0
@@ -118,12 +119,27 @@ class _ASTVisitor(ast.NodeVisitor):
     # ── function defs ─────────────────────────────────────────────
     def visit_FunctionDef(self, node: ast.FunctionDef):
         self.functions.append(node.name)
+        self._collect_parameters(node)
         self._check_mutable_defaults(node)
         self._function_depth += 1
         self.generic_visit(node)
         self._function_depth -= 1
 
     visit_AsyncFunctionDef = visit_FunctionDef  # handle async too
+
+    def _collect_parameters(self, node: ast.FunctionDef | ast.AsyncFunctionDef):
+        args = [
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+        ]
+        if node.args.vararg:
+            args.append(node.args.vararg)
+        if node.args.kwarg:
+            args.append(node.args.kwarg)
+
+        for arg in args:
+            self.parameters.add(arg.arg)
 
     def _check_mutable_defaults(self, node):
         mutable_types = (ast.List, ast.Dict, ast.Set)
@@ -224,6 +240,7 @@ def _find_undefined_names(tree: ast.Module, visitor: _ASTVisitor) -> list[str]:
     """
     defined = (
         visitor.assignments
+        | visitor.parameters
         | set(visitor.functions)
         | set(visitor.classes)
         | _BUILTINS
