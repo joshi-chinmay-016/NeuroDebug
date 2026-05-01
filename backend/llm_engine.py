@@ -1,183 +1,233 @@
 """
-NeuroDebug - Neural Layer (LLM Engine)
-
-<<<<<<< HEAD
-Sends the user's code plus symbolic findings to the Groq Chat API and returns
-a structured explanation plus suggested fix.
-=======
-Sends the user's code plus symbolic findings to the Groq API
-and returns a structured explanation + suggested fix.
->>>>>>> e7698b0119407c2ead5d7fa76051f343e28ff1ce
+llm.py — Neural Debugging Layer
+Sends code and symbolic analysis findings to the Groq API
+and returns a structured JSON response.
 """
 
 import json
 import logging
 import os
-from typing import Any
+from typing import Optional
 
-import openai
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
-
+from openai import AsyncOpenAI, AuthenticationError, RateLimitError, APIConnectionError
 
 load_dotenv()
 
-logger = logging.getLogger("neurodebug.llm")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
-_server_key = os.getenv("GROQ_API_KEY", "").strip()
+# ──────────────────────────────────────────────
+# Environment Config
+# ──────────────────────────────────────────────
 
-load_dotenv()  # load GROQ_API_KEY from .env
+GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
 
-logger = logging.getLogger("neurodebug.llm")
+# ──────────────────────────────────────────────
+# System Prompt
+# ──────────────────────────────────────────────
+
+_SYSTEM_PROMPT = """
+You are a neural debugging assistant. Analyze the provided code and symbolic findings.
+
+STRICT OUTPUT RULE: Respond ONLY with a single valid JSON object — no explanation,
+no markdown, no code fences. The JSON must contain exactly these keys:
 
 {
-
-  "error_type": "<concise category, e.g. 'SyntaxError', 'LogicError', 'Clean'>",
-  "explanation": "<detailed explanation of what is wrong and why>",
-  "suggested_fix": "<corrected code or description of fix>",
-  "confidence_score": <float 0.0-1.0>
-
-  "error_type":        "<concise category, e.g. 'SyntaxError', 'LogicError', 'Clean'>",
-  "explanation":       "<detailed explanation of what is wrong and why>",
-  "suggested_fix":     "<the entire corrected Python code snippet, properly formatted line-by-line>",
-  "confidence_score":  <float 0.0–1.0>
-
+  "error_type":       "<short label for the error category>",
+  "explanation":      "<clear explanation of the root cause>",
+  "suggested_fix":    "<actionable fix or refactor suggestion>",
+  "confidence_score": <float between 0.0 and 1.0>
 }
 
-Rules:
-- If the code looks correct, set error_type to "Clean" and confidence_score to 0.95+.
-- confidence_score reflects how certain you are that the issues you identified are real.
-- suggested_fix MUST contain the exact, corrected Python code formatted cleanly. Do not write a prose description here; only output the actual fixed code.
-- Be concise but thorough. Avoid hallucinating bugs that don't exist.
-"""
+If you cannot determine an issue, still return valid JSON with best-effort values.
+""".strip()
 
+
+# ──────────────────────────────────────────────
+# Main Function
+# ──────────────────────────────────────────────
 
 async def get_llm_analysis(
     code: str,
     symbolic_issues: list[dict],
-    api_key: str | None = None,
-) -> dict[str, Any]:
+    api_key: Optional[str] = None,
+) -> dict:
     """
-    Call Groq and return a parsed JSON response.
+    Send code and symbolic analysis findings to the Groq API.
 
-    Key resolution order:
-      1. User-supplied key from the request body.
-      2. Server GROQ_API_KEY from backend/.env.
-      3. Symbolic-only fallback if no key is available.
+    Args:
+        code:             The source code to debug.
+        symbolic_issues:  A list of issue dicts from symbolic analysis.
+        api_key:          Optional caller-supplied Groq API key.
+                          Takes priority over the .env key.
+
+    Returns:
+        A structured dict with keys: error_type, explanation,
+        suggested_fix, confidence_score.
     """
-    key_to_use = (api_key or "").strip() or _server_key
+    # Key resolution: caller key > env key
+    resolved_key = api_key or GROQ_API_KEY
 
-    if not key_to_use:
-        logger.warning("No Groq API key provided; returning symbolic fallback.")
+    if not resolved_key:
+        logger.warning("No Groq API key found — falling back to symbolic analysis.")
         return _fallback_response(symbolic_issues)
 
-    if not key_to_use.startswith("gsk_"):
-        return _error_response(
-            "That doesn't look like a valid Groq key. Groq keys usually start with 'gsk_'."
-        )
+    if not resolved_key.startswith("gsk_"):
+        logger.error("Invalid Groq API key format (must start with 'gsk_').")
+        return _error_response("invalid_key", "API key must start with 'gsk_'.")
 
-    client = AsyncOpenAI(api_key=key_to_use, base_url=GROQ_BASE_URL)
-    source = "user_key" if (api_key or "").strip() else "server_key"
-    logger.info("Groq LLM call using %s with model %s", source, GROQ_MODEL)
+    client = AsyncOpenAI(
+        api_key=resolved_key,
+        base_url=GROQ_BASE_URL,
+    )
+
+    user_prompt = _build_user_prompt(code, symbolic_issues)
 
     try:
+        logger.info("Sending request to Groq API (model: %s).", GROQ_MODEL)
         response = await client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": _build_user_prompt(code, symbolic_issues)},
+                {"role": "user",   "content": user_prompt},
             ],
             temperature=0.2,
-            max_tokens=1024,
-            response_format={"type": "json_object"},
         )
-        raw = response.choices[0].message.content or "{}"
-        logger.debug("Raw Groq response: %s", raw[:200])
-        return _parse_llm_response(raw)
-    except openai.AuthenticationError:
-        logger.error("Groq authentication failed.")
-        return _error_response("Invalid Groq API key. Please double-check the key you entered.")
-    except openai.RateLimitError:
-        logger.error("Groq rate limit exceeded.")
-        return _error_response("Groq rate limit exceeded on your key. Try again in a moment.")
-    except openai.APIConnectionError as exc:
-        logger.error("Groq connection error: %s", exc)
-        return _error_response(f"Could not connect to Groq: {exc}")
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Unexpected Groq LLM error: %s", exc)
+        raw_text = response.choices[0].message.content or ""
+        logger.info("Received response from Groq API.")
+        return _parse_llm_response(raw_text)
+
+    except AuthenticationError as exc:
+        logger.error("Authentication failed: %s", exc)
+        return _error_response("auth_error", str(exc))
+
+    except RateLimitError as exc:
+        logger.error("Rate limit exceeded: %s", exc)
+        return _error_response("rate_limit", str(exc))
+
+    except APIConnectionError as exc:
+        logger.error("API connection error: %s", exc)
+        return _error_response("connection_error", str(exc))
+
+    except Exception as exc:
+        logger.exception("Unexpected Groq API failure: %s", exc)
         return _fallback_response(symbolic_issues)
 
 
+# ──────────────────────────────────────────────
+# Helper Functions
+# ──────────────────────────────────────────────
+
 def _build_user_prompt(code: str, symbolic_issues: list[dict]) -> str:
-    if symbolic_issues:
-        issues_text = "\n\nSymbolic analysis found these issues:\n"
-        for issue in symbolic_issues:
-            severity = issue.get("severity", "info").upper()
-            rule_id = issue.get("rule_id", "?")
-            message = issue.get("message", "")
-            issues_text += f"  [{severity}] ({rule_id}) {message}\n"
-    else:
-        issues_text = "\n\nSymbolic analysis found no issues."
+    """
+    Format the user's code and symbolic findings into a readable prompt string.
 
-    return f"""Please analyse the following Python code:{issues_text}
+    Args:
+        code:            The source code snippet.
+        symbolic_issues: List of symbolic analysis issue dicts.
 
-```python
-{code}
-```
+    Returns:
+        A formatted multi-line prompt string.
+    """
+    findings_block = "\n".join(
+        f"  - [{i + 1}] {issue}" for i, issue in enumerate(symbolic_issues)
+    ) or "  (none reported)"
 
-Return only valid JSON."""
+    return (
+        f"## Code Under Analysis\n\n"
+        f"```\n{code}\n```\n\n"
+        f"## Symbolic Findings\n\n"
+        f"{findings_block}\n\n"
+        f"Analyze the code in light of the symbolic findings and return the JSON."
+    )
 
 
-def _parse_llm_response(raw: str) -> dict[str, Any]:
+def _parse_llm_response(raw: str) -> dict:
+    """
+    Safely parse the LLM's raw string output into a Python dict.
+
+    Strips markdown code fences if present before parsing.
+
+    Args:
+        raw: The raw string returned by the LLM.
+
+    Returns:
+        A parsed dict, or an error_response dict on failure.
+    """
+    cleaned = (
+        raw.strip()
+           .removeprefix("```json")
+           .removeprefix("```")
+           .removesuffix("```")
+           .strip()
+    )
+
     try:
-        data = json.loads(raw)
-        return {
-            "error_type": str(data.get("error_type", "Unknown")),
-            "explanation": str(data.get("explanation", "")),
-            "suggested_fix": str(data.get("suggested_fix", "")),
-            "confidence_score": float(data.get("confidence_score", 0.5)),
-            "source": "llm",
-        }
-    except (json.JSONDecodeError, ValueError) as exc:
-        logger.warning("Failed to parse Groq JSON: %s", exc)
-        return _error_response("Groq returned malformed JSON.")
+        parsed = json.loads(cleaned)
+        required = {"error_type", "explanation", "suggested_fix", "confidence_score"}
+        missing  = required - parsed.keys()
+        if missing:
+            logger.warning("LLM response missing keys: %s", missing)
+        return parsed
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse LLM response as JSON: %s", exc)
+        return _error_response("parse_error", f"Could not decode JSON: {exc}")
 
 
-def _fallback_response(symbolic_issues: list[dict]) -> dict[str, Any]:
-    """Synthesize a response from symbolic data when the LLM is unavailable."""
+def _fallback_response(symbolic_issues: list[dict]) -> dict:
+    """
+    Generate a best-guess response from symbolic issues when no API key
+    is available or when the API call fails entirely.
+
+    Args:
+        symbolic_issues: The list of symbolic analysis findings.
+
+    Returns:
+        A structured dict approximating LLM output.
+    """
     if not symbolic_issues:
         return {
-            "error_type": "Clean",
-            "explanation": "No issues detected by the symbolic analyser.",
-            "suggested_fix": "Code appears correct.",
-            "confidence_score": 0.75,
-            "source": "symbolic_fallback",
+            "error_type":       "unknown",
+            "explanation":      "No symbolic issues were provided and no LLM key is available.",
+            "suggested_fix":    "Provide a valid Groq API key or add symbolic analysis findings.",
+            "confidence_score": 0.0,
         }
 
-    error_issues = [issue for issue in symbolic_issues if issue["severity"] == "error"]
-    top = error_issues[0] if error_issues else symbolic_issues[0]
+    first_issue   = symbolic_issues[0]
+    issue_summary = (
+        ", ".join(f"{k}: {v}" for k, v in first_issue.items())
+        if isinstance(first_issue, dict)
+        else str(first_issue)
+    )
 
     return {
-<<<<<<< HEAD
-        "error_type": top["category"],
-        "explanation": f"(LLM unavailable) Symbolic analysis: {top['message']}",
-        "suggested_fix": "Fix the reported symbolic issues. Add GROQ_API_KEY for AI-powered suggestions.",
-=======
-        "error_type":       top["category"],
-        "explanation":      f"(LLM unavailable) Symbolic analysis: {top['message']}",
-        "suggested_fix":    "Fix the reported symbolic issues. Add GROQ_API_KEY for AI-powered suggestions.",
->>>>>>> e7698b0119407c2ead5d7fa76051f343e28ff1ce
-        "confidence_score": 0.6,
-        "source": "symbolic_fallback",
+        "error_type":    "symbolic_inference",
+        "explanation":   (
+            f"Based on {len(symbolic_issues)} symbolic finding(s), "
+            f"the most likely issue is: {issue_summary}."
+        ),
+        "suggested_fix":    "Review the flagged symbolic findings and apply targeted refactoring.",
+        "confidence_score": round(0.4 + min(len(symbolic_issues) * 0.05, 0.3), 2),
     }
 
 
-def _error_response(msg: str) -> dict[str, Any]:
+def _error_response(error_type: str, detail: str) -> dict:
+    """
+    Return a standardised error dictionary for LLM-layer failures.
+
+    Args:
+        error_type: A short identifier for the error category.
+        detail:     A human-readable description of what went wrong.
+
+    Returns:
+        A structured dict with zeroed confidence and error metadata.
+    """
     return {
-        "error_type": "LLMError",
-        "explanation": msg,
-        "suggested_fix": "Please check your Groq API key, model, and network connection.",
+        "error_type":       error_type,
+        "explanation":      detail,
+        "suggested_fix":    "Check your Groq API key, network connectivity, or rate limit quota.",
         "confidence_score": 0.0,
-        "source": "error",
     }
