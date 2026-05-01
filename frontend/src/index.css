@@ -791,6 +791,41 @@ body {
   opacity: 0.7;
 }
 
+.history-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.history-loading .spinner {
+  width: 20px;
+  height: 20px;
+}
+
+.history-loading p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.history-error {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--red);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.history-error p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .history-item {
   background: var(--bg);
   border: 1px solid var(--border);

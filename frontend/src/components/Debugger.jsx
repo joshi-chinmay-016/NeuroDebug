@@ -3,6 +3,7 @@ import axios from 'axios'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../contexts/ThemeContext'
 import ThemeToggle from './ThemeToggle'
+import { historyService } from '../firebase'
 
 // ── Sample snippets ───────────────────────────────────────────────
 const SAMPLES = [
@@ -69,7 +70,97 @@ if __name__ == "__main__":
 ]
 
 const LS_KEY = 'neurodebug_groq_key'
-const API    = import.meta.env.VITE_API_URL || ''
+const API = import.meta.env.VITE_API_URL || ''
+
+// History List Component
+function HistoryList() {
+  const [history, setHistory] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    loadHistory()
+  }, [])
+
+  const loadHistory = async () => {
+    try {
+      setLoading(true)
+      const result = await historyService.getHistory()
+      if (result.success) {
+        setHistory(result.data)
+      } else {
+        setError(result.error)
+        // Fallback to localStorage
+        const localHistory = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
+        setHistory(localHistory.map((item, index) => ({ ...item, id: index })))
+      }
+    } catch (err) {
+      setError(err.message)
+      // Fallback to localStorage
+      const localHistory = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
+      setHistory(localHistory.map((item, index) => ({ ...item, id: index })))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="history-loading">
+        <div className="spinner" />
+        <p>Loading history...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="history-error">
+        <p>Error loading history: {error}</p>
+        <button className="btn btn-ghost" onClick={loadHistory}>Retry</button>
+      </div>
+    )
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="history-empty">
+        <p>No downloaded reports yet.</p>
+        <p className="history-empty-hint">Download some reports first to see them here!</p>
+      </div>
+    )
+  }
+
+  return history.map((item, index) => (
+    <div key={item.id} className="history-item">
+      <div className="history-item-header">
+        <span className="history-item-number">Report #{index + 1}</span>
+        <span className="history-item-date">
+          {new Date(item.timestamp?.toDate?.() || item.timestamp).toLocaleString()}
+        </span>
+      </div>
+      <div className="history-item-content">
+        {item.result && (
+          <div className="history-detail">
+            <span className="history-label">Error:</span>
+            <span className="history-value">{item.result.error_type}</span>
+          </div>
+        )}
+        {item.testResult && (
+          <div className="history-detail">
+            <span className="history-label">Tests:</span>
+            <span className="history-value">
+              {item.testResult.test_cases?.length || 0} generated
+            </span>
+          </div>
+        )}
+        <div className="history-code-preview">
+          <pre>{item.code.substring(0, 150)}{item.code.length > 150 ? '...' : ''}</pre>
+        </div>
+      </div>
+    </div>
+  ))
+}
 
 // ── API call — sends user key in body ─────────────────────────────
 async function runDebug(code, apiKey) {
@@ -407,7 +498,7 @@ export default function Debugger() {
     }
   }, [code, apiKey, testLoading])
 
-  const handleDownloadReport = useCallback(() => {
+  const handleDownloadReport = useCallback(async () => {
     if (!result && !testResult) return
     
     const reportData = {
@@ -468,15 +559,26 @@ ${testResult.setup_code}
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
     
-    // Save to history
-    const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-    history.push({
-      timestamp: new Date().toISOString(),
-      code: code,
-      result: result,
-      testResult: testResult
-    })
-    localStorage.setItem('neurodebug_history', JSON.stringify(history))
+    // Save to Firebase
+    try {
+      await historyService.saveHistoryEntry({
+        code: code,
+        result: result,
+        testResult: testResult
+      })
+      console.log('History saved to Firebase successfully')
+    } catch (error) {
+      console.error('Failed to save to Firebase:', error)
+      // Fallback to localStorage
+      const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
+      history.push({
+        timestamp: new Date().toISOString(),
+        code: code,
+        result: result,
+        testResult: testResult
+      })
+      localStorage.setItem('neurodebug_history', JSON.stringify(history))
+    }
   }, [code, result, testResult])
 
   const onKeyDown = (e) => {
@@ -706,46 +808,7 @@ ${testResult.setup_code}
               </button>
             </div>
             <div className="history-modal-body">
-              {(() => {
-                const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-                if (history.length === 0) {
-                  return (
-                    <div className="history-empty">
-                      <p>No downloaded reports yet.</p>
-                      <p className="history-empty-hint">Download some reports first to see them here!</p>
-                    </div>
-                  )
-                }
-                return history.map((item, index) => (
-                  <div key={index} className="history-item">
-                    <div className="history-item-header">
-                      <span className="history-item-number">Report #{index + 1}</span>
-                      <span className="history-item-date">
-                        {new Date(item.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="history-item-content">
-                      {item.result && (
-                        <div className="history-detail">
-                          <span className="history-label">Error:</span>
-                          <span className="history-value">{item.result.error_type}</span>
-                        </div>
-                      )}
-                      {item.testResult && (
-                        <div className="history-detail">
-                          <span className="history-label">Tests:</span>
-                          <span className="history-value">
-                            {item.testResult.test_cases?.length || 0} generated
-                          </span>
-                        </div>
-                      )}
-                      <div className="history-code-preview">
-                        <pre>{item.code.substring(0, 150)}{item.code.length > 150 ? '...' : ''}</pre>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              })()}
+              <HistoryList />
             </div>
             <div className="history-modal-footer">
               <button 
