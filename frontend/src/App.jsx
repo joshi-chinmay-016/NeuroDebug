@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import axios from 'axios'
 import Editor from '@monaco-editor/react'
+import { ThemeProvider } from './contexts/ThemeContext'
+import ThemeToggle from './components/ThemeToggle'
+import { useTheme } from './contexts/ThemeContext'
 
 // ── Sample snippets ───────────────────────────────────────────────
 const SAMPLES = [
@@ -98,6 +101,40 @@ function issueIcon(sev) {
   if (sev === 'error')   return '✕'
   if (sev === 'warning') return '△'
   return 'i'
+}
+
+// ── Themed Editor ───────────────────────────────────────────────────
+function ThemedEditor({ value, onChange }) {
+  const { theme } = useTheme()
+  
+  return (
+    <Editor
+      height="420px"
+      defaultLanguage="python"
+      value={value}
+      onChange={(v) => onChange(v || '')}
+      theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
+      options={{
+        fontSize: 13,
+        fontFamily: "'JetBrains Mono', monospace",
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        lineNumbers: 'on',
+        renderLineHighlight: 'line',
+        tabSize: 4,
+        automaticLayout: true,
+        padding: { top: 14, bottom: 14 },
+        overviewRulerLanes: 0,
+        renderLineHighlightOnlyWhenFocus: true,
+      }}
+      loading={
+        <div className="spinner-wrap">
+          <div className="spinner" />
+          <span>loading editor…</span>
+        </div>
+      }
+    />
+  )
 }
 
 // ── Copy button ───────────────────────────────────────────────────
@@ -311,7 +348,7 @@ function TestResults({ data }) {
 }
 
 // ── App ───────────────────────────────────────────────────────────
-export default function App() {
+function AppContent() {
   const [code, setCode]         = useState(SAMPLES[0].code)
   const [result, setResult]     = useState(null)
   const [loading, setLoading]   = useState(false)
@@ -388,6 +425,7 @@ export default function App() {
             <span className="logo-name">NeuroDebug</span>
           </a>
           <div className="header-right">
+            <ThemeToggle />
             <div className="api-status" title="Backend API">
               <span className={`status-dot ${apiStatus}`} />
               <span>api {apiStatus}</span>
@@ -428,32 +466,7 @@ export default function App() {
             </div>
 
             <div className="editor-wrap">
-              <Editor
-                height="420px"
-                defaultLanguage="python"
-                value={code}
-                onChange={(v) => setCode(v || '')}
-                theme="vs-dark"
-                options={{
-                  fontSize: 13,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  lineNumbers: 'on',
-                  renderLineHighlight: 'line',
-                  tabSize: 4,
-                  automaticLayout: true,
-                  padding: { top: 14, bottom: 14 },
-                  overviewRulerLanes: 0,
-                  renderLineHighlightOnlyWhenFocus: true,
-                }}
-                loading={
-                  <div className="spinner-wrap">
-                    <div className="spinner" />
-                    <span>loading editor…</span>
-                  </div>
-                }
-              />
+              <ThemedEditor value={code} onChange={setCode} />
             </div>
 
             <div className="toolbar">
@@ -602,5 +615,13 @@ export default function App() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   )
 }
