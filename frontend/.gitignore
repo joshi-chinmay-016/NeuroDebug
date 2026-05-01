@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Agent files
+.antigravity/*
+.helm-diag/*
+.vscode/tasks.json
+.github/*
+.gitmodules
+.kilocode/*
+.Cursor/*
+.gemini/*
+.git/hooks/pre-commit.ref/**
+.agent-config.toml
+.code-workspace
+.claude/*
+.bmad/*
+.fireworks/*
+.replit/*
+.deepcode/*
