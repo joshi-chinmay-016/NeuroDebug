@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import BlurText from './BlurText'
 import SplashCursor from './SplashCursorNew'
+import GlareHover from './GlareHover'
 import { useTheme } from '../contexts/ThemeContext'
 
 export default function LandingPage() {
@@ -66,37 +67,57 @@ export default function LandingPage() {
 
       {/* Developer Card Section */}
       <section className="developer-section" ref={developerCardRef}>
-        <div className={`developer-card ${showDeveloperCard ? 'visible' : ''}`}>
-          <h2 className="card-title">Meet the Developer</h2>
-          <div className="developer-info">
-            <h3 className="developer-name">Chinmay Joshi</h3>
-            <p className="developer-role">FullStack Developer</p>
-            <div className="developer-bio">
-              <p>
-                Passionate full-stack developer and AI enthusiast dedicated to building innovative, scalable, and user-focused digital solutions. With a strong foundation in software development, problem-solving, and emerging technologies, I enjoy transforming complex ideas into practical applications. My expertise spans modern web development, AI integration, and project design, enabling me to create impactful solutions that solve real-world challenges while delivering seamless user experiences.
-              </p>
-            </div>
-            <div className="developer-buttons">
-              <a 
-                href="https://github.com/joshi-chinmay-016" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn btn-github"
-              >
-                <span className="btn-icon">🐙</span>
-                View My Works
-              </a>
-              <a 
-                href="https://www.linkedin.com/in/chinmay-joshi-59a840312/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn btn-linkedin"
-              >
-                <span className="btn-icon">💼</span>
-                LinkedIn
-              </a>
+        <GlareHover
+          width="100%"
+          height="auto"
+          background="#000000"
+          borderRadius="16px"
+          borderColor="#333333"
+          glareColor="#00ff88"
+          glareOpacity={0.3}
+          glareAngle={-30}
+          glareSize={300}
+          transitionDuration={1200}
+          playOnce={false}
+          className={`developer-card ${showDeveloperCard ? 'visible' : ''}`}
+          style={{ maxWidth: '500px', width: '100%' }}
+        >
+          <div style={{ padding: '3rem', textAlign: 'center' }}>
+            <h2 className="card-title">Meet the Developer</h2>
+            <div className="developer-info">
+              <h3 className="developer-name">Chinmay Joshi</h3>
+              <p className="developer-role">FullStack Developer</p>
+              <div className="developer-bio">
+                <p>
+                  Passionate full-stack developer and AI enthusiast dedicated to building innovative, scalable, and user-focused digital solutions. With a strong foundation in software development, problem-solving, and emerging technologies, I enjoy transforming complex ideas into practical applications. My expertise spans modern web development, AI integration, and project design, enabling me to create impactful solutions that solve real-world challenges while delivering seamless user experiences.
+                </p>
+              </div>
             </div>
           </div>
+        </GlareHover>
+      </section>
+
+      {/* Social Links Section */}
+      <section className="social-links-section">
+        <div className="developer-buttons" style={{ textAlign: 'center' }}>
+          <a 
+            href="https://github.com/joshi-chinmay-016" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="btn btn-github"
+          >
+            <span className="btn-icon">🐙</span>
+            Github
+          </a>
+          <a 
+            href="https://www.linkedin.com/in/chinmay-joshi-59a840312/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="btn btn-linkedin"
+          >
+            <span className="btn-icon">💼</span>
+            LinkedIn
+          </a>
         </div>
       </section>
 
@@ -170,20 +191,16 @@ export default function LandingPage() {
           position: relative;
         }
 
-        .developer-card {
-          background: #000000;
-          border: 2px solid #333333;
-          border-radius: 16px;
-          padding: 3rem;
-          max-width: 500px;
-          width: 100%;
+        .social-links-section {
+          padding: 1rem 2rem 2rem;
           text-align: center;
+          background: #000000;
+        }
+
+        .developer-card {
           opacity: 0;
           transform: translateY(50px);
           transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-          position: relative;
-          overflow: hidden;
         }
 
         .developer-card.visible {
@@ -245,6 +262,7 @@ export default function LandingPage() {
           font-weight: 500;
           transition: all 0.2s ease;
           border: 1px solid #444444;
+          cursor: pointer;
         }
 
         .btn-github:hover {
@@ -266,12 +284,21 @@ export default function LandingPage() {
           font-weight: 500;
           transition: all 0.2s ease;
           border: 1px solid #0077b5;
+          cursor: pointer;
         }
 
         .btn-linkedin:hover {
           background: #005885;
           border-color: #004471;
           transform: translateY(-2px);
+        }
+
+        .btn-github:focus,
+        .btn-linkedin:focus {
+          outline: 2px solid #00ff88;
+          outline-offset: 2px;
+          position: relative;
+          z-index: 10;
         }
 
         .btn-icon {
