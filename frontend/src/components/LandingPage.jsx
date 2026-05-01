@@ -71,8 +71,30 @@ export default function LandingPage() {
           <div className="developer-info">
             <h3 className="developer-name">Chinmay Joshi</h3>
             <p className="developer-role">FullStack Developer</p>
-            <div className="future-content">
-              {/* Space for future content */}
+            <div className="developer-bio">
+              <p>
+                Passionate full-stack developer and AI enthusiast dedicated to building innovative, scalable, and user-focused digital solutions. With a strong foundation in software development, problem-solving, and emerging technologies, I enjoy transforming complex ideas into practical applications. My expertise spans modern web development, AI integration, and project design, enabling me to create impactful solutions that solve real-world challenges while delivering seamless user experiences.
+              </p>
+            </div>
+            <div className="developer-buttons">
+              <a 
+                href="https://github.com/joshi-chinmay-016" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-github"
+              >
+                <span className="btn-icon">🐙</span>
+                View My Works
+              </a>
+              <a 
+                href="https://www.linkedin.com/in/chinmay-joshi-59a840312/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-linkedin"
+              >
+                <span className="btn-icon">💼</span>
+                LinkedIn
+              </a>
             </div>
           </div>
         </div>
@@ -188,7 +210,72 @@ export default function LandingPage() {
         .developer-role {
           font-size: 1.2rem;
           color: #00ff88;
+          margin-bottom: 1.5rem;
+        }
+
+        .developer-bio {
           margin-bottom: 2rem;
+          text-align: left;
+        }
+
+        .developer-bio p {
+          font-size: 0.95rem;
+          line-height: 1.6;
+          color: #cccccc;
+          margin: 0;
+        }
+
+        .developer-buttons {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .btn-github {
+          background: #333333;
+          color: #ffffff;
+          padding: 8px 16px;
+          border-radius: 8px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.9rem;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          border: 1px solid #444444;
+        }
+
+        .btn-github:hover {
+          background: #444444;
+          border-color: #666666;
+          transform: translateY(-2px);
+        }
+
+        .btn-linkedin {
+          background: #0077b5;
+          color: #ffffff;
+          padding: 8px 16px;
+          border-radius: 8px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.9rem;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          border: 1px solid #0077b5;
+        }
+
+        .btn-linkedin:hover {
+          background: #005885;
+          border-color: #004471;
+          transform: translateY(-2px);
+        }
+
+        .btn-icon {
+          font-size: 1rem;
         }
 
         .future-content {
