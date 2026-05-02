@@ -1,6 +1,6 @@
 # NeuroDebug
 
-A Python code debugger that combines static AST analysis with Groq LLM explanations.
+A Python code debugger that combines static AST(Abstract Syntax Trees) analysis with Groq LLM explanations.
 Paste code, get a diagnosis and auto-generated tests. No code is ever executed — analysis only.
 
 ![NeuroDebug Demo Run](screenshots/demo_run_result.png)
