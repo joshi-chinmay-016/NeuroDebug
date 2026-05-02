@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react'
 import { useTheme } from '../contexts/ThemeContext'
 import ThemeToggle from './ThemeToggle'
 import { historyService } from '../firebase'
+import SaasFooter from './SaasFooter'
 
 // ── Sample snippets ───────────────────────────────────────────────
 const SAMPLES = [
@@ -90,13 +91,11 @@ function HistoryList() {
         setHistory(result.data)
       } else {
         setError(result.error)
-        // Fallback to localStorage
         const localHistory = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
         setHistory(localHistory.map((item, index) => ({ ...item, id: index })))
       }
     } catch (err) {
       setError(err.message)
-      // Fallback to localStorage
       const localHistory = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
       setHistory(localHistory.map((item, index) => ({ ...item, id: index })))
     } finally {
@@ -406,7 +405,7 @@ function TestResults({ data }) {
 // ── Themed Editor ───────────────────────────────────────────────────
 function ThemedEditor({ value, onChange }) {
   const { theme } = useTheme()
-  
+
   return (
     <Editor
       height="420px"
@@ -437,19 +436,18 @@ function ThemedEditor({ value, onChange }) {
   )
 }
 
-// ── Debugger Component ───────────────────────────────────────────────
+// ── Debugger Component ────────────────────────────────────────────
 export default function Debugger() {
-  const [code, setCode]         = useState(SAMPLES[0].code)
-  const [result, setResult]     = useState(null)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState(null)
-  const [apiStatus, setApiStatus] = useState('checking')
+  const [code, setCode]             = useState(SAMPLES[0].code)
+  const [result, setResult]         = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState(null)
+  const [apiStatus, setApiStatus]   = useState('checking')
   const [testResult, setTestResult] = useState(null)
   const [testLoading, setTestLoading] = useState(false)
-  const [testError, setTestError] = useState(null)
+  const [testError, setTestError]   = useState(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  // Load saved key from localStorage on mount
   const [apiKey, setApiKey] = useState(() => {
     try { return localStorage.getItem(LS_KEY) || '' } catch (_) { return '' }
   })
@@ -500,14 +498,7 @@ export default function Debugger() {
 
   const handleDownloadReport = useCallback(async () => {
     if (!result && !testResult) return
-    
-    const reportData = {
-      timestamp: new Date().toISOString(),
-      code: code,
-      debugResult: result,
-      testResult: testResult
-    }
-    
+
     const reportContent = `# NeuroDebug Analysis Report
 Generated: ${new Date().toLocaleString()}
 
@@ -558,25 +549,14 @@ ${testResult.setup_code}
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    
-    // Save to Firebase
+
     try {
-      await historyService.saveHistoryEntry({
-        code: code,
-        result: result,
-        testResult: testResult
-      })
+      await historyService.saveHistoryEntry({ code, result, testResult })
       console.log('History saved to Firebase successfully')
     } catch (error) {
       console.error('Failed to save to Firebase:', error)
-      // Fallback to localStorage
       const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-      history.push({
-        timestamp: new Date().toISOString(),
-        code: code,
-        result: result,
-        testResult: testResult
-      })
+      history.push({ timestamp: new Date().toISOString(), code, result, testResult })
       localStorage.setItem('neurodebug_history', JSON.stringify(history))
     }
   }, [code, result, testResult])
@@ -628,7 +608,6 @@ ${testResult.setup_code}
           </p>
         </div>
 
-        {/* ── API key bar — above the workspace ── */}
         <ApiKeyBar apiKey={apiKey} setApiKey={setApiKey} />
 
         <div className="workspace">
@@ -699,12 +678,12 @@ ${testResult.setup_code}
                 <button
                   id="clear-btn"
                   className="btn btn-ghost"
-                  onClick={() => { 
-                    setCode(''); 
-                    setResult(null); 
-                    setError(null);
-                    setTestResult(null);
-                    setTestError(null);
+                  onClick={() => {
+                    setCode('')
+                    setResult(null)
+                    setError(null)
+                    setTestResult(null)
+                    setTestError(null)
                   }}
                 >
                   clear
@@ -811,12 +790,12 @@ ${testResult.setup_code}
               <HistoryList />
             </div>
             <div className="history-modal-footer">
-              <button 
+              <button
                 className="btn btn-green"
                 onClick={() => {
                   const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
                   if (history.length === 0) return
-                  
+
                   const historyContent = history.map((item, index) => `
 ## Report ${index + 1} - ${new Date(item.timestamp).toLocaleString()}
 ${item.result ? `Error: ${item.result.error_type}` : 'No debug result'}
@@ -825,13 +804,12 @@ ${item.testResult ? `Tests: ${item.testResult.test_cases?.length || 0} generated
 ${item.code.substring(0, 200)}${item.code.length > 200 ? '...' : ''}
 \`\`\`
 `).join('\n---\n')
-                  
+
                   const fullContent = `# NeuroDebug History
 Total Reports: ${history.length}
 
 ${historyContent}
 `
-                  
                   const blob = new Blob([fullContent], { type: 'text/markdown' })
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a')
@@ -852,15 +830,7 @@ ${historyContent}
       )}
 
       {/* ── Footer ── */}
-      <footer className="footer">
-        <div className="footer-inner">
-          <p>2025 NeuroDebug. Built with FastAPI + React.</p>
-          <div className="footer-links">
-            <a href="/docs" target="_blank" rel="noreferrer">docs</a>
-            <a href="https://github.com" target="_blank" rel="noreferrer">github</a>
-          </div>
-        </div>
-      </footer>
+      <SaasFooter />
     </div>
   )
 }
