@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import BlurText from './BlurText'
 import SplashCursor from './SplashCursorNew'
 import SaasFooter from './SaasFooter'
+import StarBorder from './StarBorder'
+import Galaxy from './Galaxy'
+import TextType from './TextType'
 import { useTheme } from '../contexts/ThemeContext'
 
 export default function LandingPage() {
@@ -36,13 +39,30 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page">
+      <div className="galaxy-background">
+        <Galaxy 
+          mouseRepulsion={true}
+          mouseInteraction={true}
+          density={1.5}
+          glowIntensity={0.5}
+          saturation={0.8}
+          hueShift={240}
+          transparent={true}
+          speed={0.8}
+          rotationSpeed={0.05}
+        />
+      </div>
       <SplashCursor 
-        DENSITY_DISSIPATION={3}
-        VELOCITY_DISSIPATION={5}
-        PRESSURE={0.4}
-        CURL={33}
-        COLOR="#44ef58"
-      />
+          DENSITY_DISSIPATION={2}
+          VELOCITY_DISSIPATION={3}
+          PRESSURE={0.2}
+          CURL={25}
+          COLOR="#44ef58"
+          SIM_RESOLUTION={64}
+          DYE_RESOLUTION={1024}
+          SPLAT_RADIUS={0.15}
+          SPLAT_FORCE={4000}
+        />
       
       {/* Top Right Debug Button */}
       <div className="top-debug-button">
@@ -54,6 +74,19 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-content">
+          <div className="welcome-text">
+            <TextType 
+              text="Welcome to "
+              typingSpeed={75}
+              pauseDuration={1900}
+              showCursor={true}
+              cursorCharacter="|"
+              deletingSpeed={40}
+              loop={false}
+              initialDelay={500}
+              className="welcome-typing"
+            />
+          </div>
           <BlurText
             text="Neuro-Debug"
             delay={140}
@@ -67,14 +100,20 @@ export default function LandingPage() {
 
       {/* Developer Card Section */}
       <section className="developer-section" ref={developerCardRef}>
-        <div className={`developer-card ${showDeveloperCard ? 'visible' : ''}`}>
+        <StarBorder
+          as="div"
+          className={`developer-card ${showDeveloperCard ? 'visible' : ''}`}
+          color="#00ff88"
+          speed="8s"
+          thickness={3}
+        >
           <h2 className="card-title">Meet the Developer</h2>
           <div className="developer-info">
             <h3 className="developer-name">Chinmay Joshi</h3>
             <p className="developer-role">FullStack Developer</p>
             <div className="developer-bio">
               <p>
-                Passionate full-stack developer and AI enthusiast dedicated to building innovative, scalable, and user-focused digital solutions. With a strong foundation in software development, problem-solving, and emerging technologies, I enjoy transforming complex ideas into practical applications. My expertise spans modern web development, AI integration, and project design, enabling me to create impactful solutions that solve real-world challenges while delivering seamless user experiences.
+                Passionate full-stack developer and AI enthusiast with a strong interest in building innovative, scalable, and user-centric digital solutions. Experienced in combining modern technologies, problem-solving skills, and creative thinking to develop impactful projects that address real-world challenges.
               </p>
             </div>
             <div className="developer-buttons">
@@ -98,7 +137,7 @@ export default function LandingPage() {
               </a>
             </div>
           </div>
-        </div>
+        </StarBorder>
       </section>
 
       <SaasFooter />
@@ -111,6 +150,26 @@ export default function LandingPage() {
           background: #000000;
         }
 
+        .galaxy-background {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+          pointer-events: none;
+        }
+
+        .splash-cursor-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 100;
+          pointer-events: none;
+        }
+
         .hero-section {
           height: 100vh;
           display: flex;
@@ -118,6 +177,7 @@ export default function LandingPage() {
           justify-content: center;
           position: relative;
           background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
+          z-index: 1;
         }
 
         .hero-content {
@@ -126,21 +186,34 @@ export default function LandingPage() {
           position: relative;
         }
 
+        .welcome-text {
+          margin-bottom: 1rem;
+          text-align: center;
+        }
+
+        .welcome-typing {
+          font-size: clamp(1.5rem, 4vw, 2.5rem);
+          font-weight: 300;
+          color: #ffffff;
+          letter-spacing: 0.1em;
+          text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
         .hero-title {
           font-size: clamp(3rem, 10vw, 8rem);
-          font-weight: 700;
+          font-weight: 800;
           color: #ffffff;
-          margin: 0;
+          text-transform: uppercase;
           letter-spacing: -0.02em;
           line-height: 1;
-          text-shadow: 0 0 40px rgba(0, 255, 136, 0.5);
+          text-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
         }
 
         .top-debug-button {
           position: fixed;
           top: 2rem;
           right: 2rem;
-          z-index: 100;
+          z-index: 1000;
         }
 
         .debug-button {
@@ -169,8 +242,8 @@ export default function LandingPage() {
           align-items: center;
           justify-content: center;
           padding: 4rem 2rem;
-          background: #000000;
           position: relative;
+          z-index: 1;
         }
 
         
