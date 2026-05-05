@@ -1,50 +1,63 @@
 # NeuroDebug
 
-A Python code debugger that combines static AST(Abstract Syntax Trees) analysis with Groq LLM explanations.
-Paste code, get a diagnosis and auto-generated tests. No code is ever executed — analysis only.
+A modern AI-powered code debugging platform that combines static AST analysis with dynamic visual effects and interactive components.
 
 ![NeuroDebug Demo Run](screenshots/demo_run_result.png)
 
 ---
 
-## How it works
+## Features
 
-### Debug Analysis
+### Core Functionality
+- **AI-Powered Debug Analysis**: Combines static AST parsing with Groq LLM explanations
+- **Interactive Code Editor**: Monaco Editor with syntax highlighting and real-time validation
+- **Auto-Generated Tests**: Comprehensive pytest test cases from any Python code
+- **Persistent History**: Firebase integration for storing and retrieving debug sessions
+- **Modern UI/UX**: Responsive design with smooth animations and transitions
 
-```
-your code
-    ↓
-AST parser (parser.py)
-    ↓
-Rule engine — 13 checks (rules.py)
-    ↓
-Groq LLM explanation using your own Groq API key (llm_engine.py)
-    ↓
-merged result → frontend
-```
-
-**Symbolic layer** catches things like undefined variables, division by zero, bare excepts, and mutable defaults — deterministically, without touching an LLM.
-
-**Neural layer** sends the code + symbolic findings to Groq and gets back a plain-English explanation and a corrected code snippet.
-
-### Test Generation
-
-```
-your code
-    ↓
-AST parser (syntax validation)
-    ↓
-Groq LLM test generation
-    ↓
-pytest test cases + imports + setup → frontend
-```
-
-Automatically generate comprehensive pytest test cases covering happy paths, edge cases, and error conditions.
+### Visual Effects & Components
+- **Galaxy Background**: Interactive WebGL-based starfield with mouse repulsion effects
+- **SplashCursor**: Fluid cursor effects with customizable particle trails
+- **TextType Animation**: Smooth typing effects for dynamic text display
+- **StarBorder Component**: Animated border effects for UI elements
+- **BlurText Animation**: Letter-by-letter reveal animations
+- **SaaS-Level Footer**: Professional footer with navigation and contact information
 
 ---
 
-## Project structure
+## How it works
 
+### Debug Analysis Pipeline
+```
+User Code Input
+    ↓
+AST Parser (static analysis)
+    ↓
+Rule Engine (13 validation rules)
+    ↓
+Symbolic Layer (deterministic checks)
+    ↓
+Neural Layer (Groq LLM explanations)
+    ↓
+Enhanced Results → Frontend
+```
+
+### Frontend Architecture
+```
+React 18 + Vite
+    ↓
+Component-Based Design
+    ↓
+State Management (React Hooks)
+    ↓
+Real-time Updates
+    ↓
+Responsive Layout
+```
+
+---
+
+## Project Structure
 ```
 neurodebug/
 ├── backend/
@@ -62,7 +75,16 @@ neurodebug/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx       # editor + key input + results
+│   │   ├── components/
+│   │   │   ├── LandingPage.jsx    # Main landing page with all effects
+│   │   │   ├── Debugger.jsx       # Code editor interface
+│   │   │   ├── SaasFooter.jsx     # Professional footer component
+│   │   │   ├── Galaxy.jsx          # WebGL galaxy background
+│   │   │   ├── SplashCursorNew.jsx # Interactive cursor effects
+│   │   │   ├── TextType.jsx        # Typing animation component
+│   │   │   ├── StarBorder.jsx     # Animated border effects
+│   │   │   └── BlurText.jsx       # Text reveal animations
+│   │   ├── App.jsx       # Main app component
 │   │   ├── main.jsx
 │   │   └── index.css
 │   ├── nginx.conf
@@ -77,11 +99,21 @@ neurodebug/
 
 ---
 
-## API key — how it works
+## UI Components
 
-Each user enters their **own** Groq API key in the UI. It is:
+### Landing Page Features
+- **Galaxy Background**: Interactive starfield with mouse-responsive particle effects
+- **TextType Animation**: "Welcome to " typing effect above main title
+- **BlurText Effects**: Animated "NeuroDebug" title reveal
+- **StarBorder Developer Card**: Animated border around developer information
+- **SaaS Footer**: Professional footer with navigation and contact links
+- **Theme Support**: Dark/light mode toggle functionality
 
-- stored in their browser's `localStorage` (never sent to the server except per-request)
+### Interactive Elements
+- **SplashCursor**: Fluid particle trail effects following mouse movement
+- **Mouse Repulsion**: Galaxy stars react to cursor position
+- **Responsive Design**: Adapts seamlessly to all screen sizes
+- **Smooth Transitions**: Professional animations and micro-interactions
 - sent as `api_key` in the POST body when they click "Run analysis"
 - used to create a per-request Groq client — so **their account pays, not yours**
 
