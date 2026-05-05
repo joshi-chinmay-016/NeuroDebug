@@ -107,7 +107,7 @@ neurodebug/
 - **BlurText Effects**: Animated "NeuroDebug" title reveal
 - **StarBorder Developer Card**: Animated border around developer information
 - **SaaS Footer**: Professional footer with navigation and contact links
-- **Theme Support**: Dark/light mode toggle functionality
+- **Theme Support**: Dark/light mode toggle functionality.
 
 ### Interactive Elements
 - **SplashCursor**: Fluid particle trail effects following mouse movement
