@@ -4,6 +4,8 @@ A modern AI-powered code debugging platform that combines static AST analysis wi
 
 ![NeuroDebug Demo Run](screenshots/demo_run_result.png)
 
+
+
 ---
 
 ## Features
@@ -196,7 +198,7 @@ npm install
 npm run dev
 ```
 
-App: `http://localhost:3000`
+App:- `http://localhost:3000`
 
 ### Tests
 
