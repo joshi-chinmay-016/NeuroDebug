@@ -8,7 +8,7 @@ export default function SaasFooter() {
       <footer className="saas-footer">
         <div className="footer-container">
 
-          {/* ── Top row: brand + links ── */}
+          {/* ── Top row: brand + links ── */}    
           <div className="footer-top">
 
             <div className="footer-brand">
