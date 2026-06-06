@@ -604,7 +604,7 @@ ${testResult.setup_code}
           <p>
             Paste code below and hit <strong>Run analysis</strong>.
             Uses static AST rules and Groq to explain what's wrong.{' '}
-            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">API docs →</a>
+            <a href="http://15.206.92.74:8000/docs" target="_blank" rel="noreferrer">API docs →</a>
           </p>
         </div>
 
