@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import ThemeToggle from './ThemeToggle'
 import { historyService } from '../firebase'
 import SaasFooter from './SaasFooter'
+import { API_BASE_URL } from '../config/api'
 
 // ── Sample snippets ───────────────────────────────────────────────
 const SAMPLES = [
@@ -71,7 +72,6 @@ if __name__ == "__main__":
 ]
 
 const LS_KEY = 'neurodebug_groq_key'
-const API = import.meta.env.VITE_API_URL || ''
 
 // History List Component
 function HistoryList() {
@@ -165,14 +165,14 @@ function HistoryList() {
 async function runDebug(code, apiKey) {
   const body = { code }
   if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
-  const res = await axios.post(`${API}/debug`, body, { timeout: 30000 })
+  const res = await axios.post(`${API_BASE_URL}/debug`, body, { timeout: 30000 })
   return res.data
 }
 
 async function runTestGeneration(code, apiKey) {
   const body = { code }
   if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
-  const res = await axios.post(`${API}/generate-tests`, body, { timeout: 30000 })
+  const res = await axios.post(`${API_BASE_URL}/generate-tests`, body, { timeout: 30000 })
   return res.data
 }
 
@@ -453,7 +453,7 @@ export default function Debugger() {
   })
 
   useEffect(() => {
-    axios.get(`${API}/health`, { timeout: 4000 })
+    axios.get(`${API_BASE_URL}/health`, { timeout: 4000 })
       .then(() => setApiStatus('online'))
       .catch(() => setApiStatus('offline'))
   }, [])
