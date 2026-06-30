@@ -2,7 +2,7 @@
 
 A modern AI-powered code debugging platform that combines static AST analysis with dynamic visual effects and interactive components.
 
-![NeuroDebug Demo Run](screenshots/demo_run_result.png)
+![NeuroDebug Demo Run](screenshots/Screenshot%202026-06-30%20153034.png)
 
 
 
