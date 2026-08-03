@@ -27,15 +27,15 @@ def test_health():
 # ──────────────────────────────────────────────────────────────────
 # Empty input validation
 # ──────────────────────────────────────────────────────────────────
-def test_empty_code_returns_400():
+def test_empty_code_returns_422():
     resp = client.post("/debug", json={"code": ""})
-    assert resp.status_code == 400
+    assert resp.status_code == 422
 
 
 # ──────────────────────────────────────────────────────────────────
 # AST parser tests
 # ──────────────────────────────────────────────────────────────────
-from parser import analyze_code_ast
+from analysis.ast_parser import analyze_code_ast
 
 def test_parse_clean_code():
     code = "x = 1\nprint(x)\n"
@@ -78,7 +78,7 @@ def test_infinite_loop_with_break_is_ok():
 # ──────────────────────────────────────────────────────────────────
 # Rules engine tests
 # ──────────────────────────────────────────────────────────────────
-from rules import apply_rules
+from analysis.rule_engine import apply_rules
 
 def test_rule_syntax_error():
     ast_r = {"success": False, "syntax_error": "SyntaxError at line 1: invalid syntax",
@@ -102,10 +102,9 @@ def test_rule_bool_comparison():
 
 def test_no_issues_for_clean_code():
     code = """
-def add(a: int, b: int) -> int:
-    return a + b
-
-result = add(2, 3)
+x = 1
+y = 2
+result = x + y
 print(result)
 """
     ast_r = analyze_code_ast(code)

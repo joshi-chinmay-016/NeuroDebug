@@ -1047,12 +1047,160 @@ body {
   font-family: var(--mono);
   font-size: 0.75rem;
   line-height: 1.6;
-  color: #a6e3a1;
-  padding: 0.75rem 1rem;
-  overflow-x: auto;
+  color: var(--text-code);
+  padding: 0.75rem;
   white-space: pre-wrap;
-  word-break: break-word;
+  word-break: break-all;
+}
+
+/* ── Patch View Styles ─────────────────────────────────────────────── */
+.patch-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.patch-tab {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.patch-tab:hover {
+  color: var(--text);
+  background: var(--gray-light);
+}
+
+.patch-tab.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+
+.validation-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.validation-badge.valid {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.validation-badge.invalid {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.validation-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--red-light);
+  color: var(--red);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.patch-editor-container,
+.diff-editor-container {
+  height: 100%;
+  min-height: 300px;
+}
+
+.diff-container {
+  padding: 1rem;
+  background: var(--bg-code);
+  overflow-x: auto;
+}
+
+.diff-pre {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-code);
+  white-space: pre;
   margin: 0;
 }
 
+/* ── Status Indicators ─────────────────────────────────────────────── */
+.patch-status,
+.validation-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
 
+.status-label {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.status-value {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-value.generated {
+  color: var(--green);
+}
+
+.status-value.generated_invalid {
+  color: var(--amber);
+}
+
+.status-value.not_generated {
+  color: var(--text-3);
+}
+
+.status-value.failed {
+  color: var(--red);
+}
+
+.status-value.valid {
+  color: var(--green);
+}
+
+.status-value.invalid {
+  color: var(--red);
+}
+
+.status-value.not_attempted {
+  color: var(--text-3);
+}
+
+/* ── Metadata Styles ────────────────────────────────────────────────── */
+.metadata-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metadata-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.metadata-key {
+  color: var(--text-3);
+  font-weight: 500;
+  min-width: 150px;
+}
+
+.metadata-value {
+  color: var(--text);
+  font-family: var(--mono);
+}

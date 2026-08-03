@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import axios from 'axios'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../contexts/ThemeContext'
 import ThemeToggle from './ThemeToggle'
 import { historyService } from '../firebase'
 import SaasFooter from './SaasFooter'
-import { API_BASE_URL } from '../config/api'
+import PatchView from './PatchView'
+import DiffView from './DiffView'
+import { runDebug, checkHealth } from '../services/debugService'
 
 // ── Sample snippets ───────────────────────────────────────────────
 const SAMPLES = [
@@ -161,14 +162,7 @@ function HistoryList() {
   ))
 }
 
-// ── API call — sends user key in body ─────────────────────────────
-async function runDebug(code, apiKey) {
-  const body = { code }
-  if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
-  const res = await axios.post(`${API_BASE_URL}/debug`, body, { timeout: 30000 })
-  return res.data
-}
-
+// ── API call for test generation (legacy endpoint) ─────────────────
 async function runTestGeneration(code, apiKey) {
   const body = { code }
   if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
@@ -290,6 +284,18 @@ function Results({ data }) {
             </div>
             <span className="conf-pct">{pct}%</span>
           </div>
+          {data.patch_status && (
+            <div className="patch-status">
+              <span className="status-label">patch:</span>
+              <span className={`status-value ${data.patch_status}`}>{data.patch_status}</span>
+            </div>
+          )}
+          {data.validation_result && (
+            <div className="validation-status">
+              <span className="status-label">validation:</span>
+              <span className={`status-value ${data.validation_result}`}>{data.validation_result}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -300,29 +306,17 @@ function Results({ data }) {
         </div>
       </div>
 
-      {data.suggested_fix && data.suggested_fix !== 'Code appears correct.' && (
-        <div className="result-block">
-          <div className="result-block-header">suggested fix</div>
-          <div className="result-block-body" style={{ padding: 0 }}>
-            <div className="fix-wrap">
-              <pre className="fix-pre">{data.suggested_fix}</pre>
-              <CopyBtn text={data.suggested_fix} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {data.symbolic_issues?.length > 0 && (
+      {data.detected_issues?.length > 0 && (
         <div className="result-block">
           <div className="result-block-header">
-            static analysis
+            detected issues
             <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>
-              {data.symbolic_issues.length} issue{data.symbolic_issues.length !== 1 ? 's' : ''}
+              {data.detected_issues.length} issue{data.detected_issues.length !== 1 ? 's' : ''}
             </span>
           </div>
           <div className="result-block-body" style={{ padding: '0 1rem' }}>
             <div className="issues-list">
-              {data.symbolic_issues.map((iss, i) => (
+              {data.detected_issues.map((iss, i) => (
                 <div key={i} className="issue-row">
                   <span
                     className="issue-icon"
@@ -336,6 +330,26 @@ function Results({ data }) {
                   </span>
                   <span className="issue-msg">{iss.message}</span>
                   <span className="issue-rule">{iss.rule_id}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patch View */}
+      {data.candidate_patch && <PatchView patchData={data.candidate_patch} />}
+
+      {/* Metadata */}
+      {data.metadata && Object.keys(data.metadata).length > 0 && (
+        <div className="result-block">
+          <div className="result-block-header">metadata</div>
+          <div className="result-block-body" style={{ padding: '0 1rem' }}>
+            <div className="metadata-list">
+              {Object.entries(data.metadata).map(([key, value]) => (
+                <div key={key} className="metadata-row">
+                  <span className="metadata-key">{key}:</span>
+                  <span className="metadata-value">{value}</span>
                 </div>
               ))}
             </div>
@@ -453,7 +467,7 @@ export default function Debugger() {
   })
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/health`, { timeout: 4000 })
+    checkHealth()
       .then(() => setApiStatus('online'))
       .catch(() => setApiStatus('offline'))
   }, [])
