@@ -6,7 +6,6 @@ No code is ever executed — only the parse tree is inspected.
 """
 
 import ast
-import logging
 from typing import Any
 
 from utils.logging import get_logger
@@ -17,6 +16,7 @@ logger = get_logger("neurodebug.ast_parser")
 # ──────────────────────────────────────────────────────────────────
 # Public API
 # ──────────────────────────────────────────────────────────────────
+
 
 def analyze_code_ast(code: str) -> dict[str, Any]:
     """
@@ -70,18 +70,22 @@ def analyze_code_ast(code: str) -> dict[str, Any]:
     visitor = _ASTVisitor()
     visitor.visit(tree)
 
-    result["imports"]               = visitor.imports
-    result["functions"]             = visitor.functions
-    result["classes"]               = visitor.classes
-    result["variables"]             = list(visitor.assignments)
-    result["undefined_names"]       = _find_undefined_names(tree, visitor)
+    result["imports"] = visitor.imports
+    result["functions"] = visitor.functions
+    result["classes"] = visitor.classes
+    result["variables"] = list(visitor.assignments)
+    result["undefined_names"] = _find_undefined_names(tree, visitor)
     result["return_outside_function"] = visitor.return_outside_function
-    result["bare_excepts"]          = visitor.bare_excepts
-    result["mutable_defaults"]      = visitor.mutable_defaults
+    result["bare_excepts"] = visitor.bare_excepts
+    result["mutable_defaults"] = visitor.mutable_defaults
     result["division_by_zero_risk"] = visitor.division_by_zero_risk
-    result["infinite_loop_risk"]    = visitor.infinite_loop_risk
+    result["infinite_loop_risk"] = visitor.infinite_loop_risk
 
-    logger.debug("AST analysis OK: %d functions, %d classes", len(result["functions"]), len(result["classes"]))
+    logger.debug(
+        "AST analysis OK: %d functions, %d classes",
+        len(result["functions"]),
+        len(result["classes"]),
+    )
     return result
 
 
@@ -89,21 +93,22 @@ def analyze_code_ast(code: str) -> dict[str, Any]:
 # Internal visitor
 # ──────────────────────────────────────────────────────────────────
 
+
 class _ASTVisitor(ast.NodeVisitor):
     """Collect structural information from the AST."""
 
     def __init__(self):
-        self.imports:               list[str] = []
-        self.functions:             list[str] = []
-        self.classes:               list[str] = []
-        self.assignments:           set[str]  = set()
-        self.used_names:            set[str]  = set()
-        self.return_outside_function: bool    = False
-        self.bare_excepts:          int       = 0
-        self.mutable_defaults:      list[str] = []
-        self.division_by_zero_risk: bool      = False
-        self.infinite_loop_risk:    bool      = False
-        self._function_depth:       int       = 0
+        self.imports: list[str] = []
+        self.functions: list[str] = []
+        self.classes: list[str] = []
+        self.assignments: set[str] = set()
+        self.used_names: set[str] = set()
+        self.return_outside_function: bool = False
+        self.bare_excepts: int = 0
+        self.mutable_defaults: list[str] = []
+        self.division_by_zero_risk: bool = False
+        self.infinite_loop_risk: bool = False
+        self._function_depth: int = 0
 
     # ── imports ──────────────────────────────────────────────────
     def visit_Import(self, node: ast.Import):
@@ -175,9 +180,12 @@ class _ASTVisitor(ast.NodeVisitor):
 
     # ── division by zero ─────────────────────────────────────────
     def visit_BinOp(self, node: ast.BinOp):
-        if isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
-            if isinstance(node.right, ast.Constant) and node.right.value == 0:
-                self.division_by_zero_risk = True
+        if (
+            isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod))
+            and isinstance(node.right, ast.Constant)
+            and node.right.value == 0
+        ):
+            self.division_by_zero_risk = True
         self.generic_visit(node)
 
     # ── infinite while True ──────────────────────────────────────
@@ -196,25 +204,94 @@ class _ASTVisitor(ast.NodeVisitor):
 
 _BUILTINS = {
     # built-in functions
-    "print", "len", "range", "type", "isinstance", "issubclass",
-    "int", "float", "str", "bool", "list", "dict", "set", "tuple",
-    "input", "open", "enumerate", "zip", "map", "filter", "sorted",
-    "reversed", "sum", "min", "max", "abs", "round", "pow", "divmod",
-    "hex", "oct", "bin", "ord", "chr", "id", "hash", "repr", "vars",
-    "dir", "getattr", "setattr", "hasattr", "delattr", "callable",
-    "iter", "next", "any", "all", "format", "super", "object", "property",
-    "staticmethod", "classmethod",
+    "print",
+    "len",
+    "range",
+    "type",
+    "isinstance",
+    "issubclass",
+    "int",
+    "float",
+    "str",
+    "bool",
+    "list",
+    "dict",
+    "set",
+    "tuple",
+    "input",
+    "open",
+    "enumerate",
+    "zip",
+    "map",
+    "filter",
+    "sorted",
+    "reversed",
+    "sum",
+    "min",
+    "max",
+    "abs",
+    "round",
+    "pow",
+    "divmod",
+    "hex",
+    "oct",
+    "bin",
+    "ord",
+    "chr",
+    "id",
+    "hash",
+    "repr",
+    "vars",
+    "dir",
+    "getattr",
+    "setattr",
+    "hasattr",
+    "delattr",
+    "callable",
+    "iter",
+    "next",
+    "any",
+    "all",
+    "format",
+    "super",
+    "object",
+    "property",
+    "staticmethod",
+    "classmethod",
     # constants / special names
-    "None", "True", "False", "__name__", "__file__", "__doc__",
-    "NotImplemented", "Ellipsis",
+    "None",
+    "True",
+    "False",
+    "__name__",
+    "__file__",
+    "__doc__",
+    "NotImplemented",
+    "Ellipsis",
     # common exceptions
-    "Exception", "ValueError", "TypeError", "KeyError", "IndexError",
-    "AttributeError", "NameError", "RuntimeError", "StopIteration",
-    "GeneratorExit", "SystemExit", "KeyboardInterrupt", "ImportError",
-    "FileNotFoundError", "OSError", "IOError", "OverflowError",
-    "ZeroDivisionError", "MemoryError", "RecursionError", "NotImplementedError",
+    "Exception",
+    "ValueError",
+    "TypeError",
+    "KeyError",
+    "IndexError",
+    "AttributeError",
+    "NameError",
+    "RuntimeError",
+    "StopIteration",
+    "GeneratorExit",
+    "SystemExit",
+    "KeyboardInterrupt",
+    "ImportError",
+    "FileNotFoundError",
+    "OSError",
+    "IOError",
+    "OverflowError",
+    "ZeroDivisionError",
+    "MemoryError",
+    "RecursionError",
+    "NotImplementedError",
     # other globals often present
-    "self", "cls",
+    "self",
+    "cls",
 }
 
 
@@ -235,7 +312,7 @@ def _find_undefined_names(tree: ast.Module, visitor: _ASTVisitor) -> list[str]:
     # Also treat for-loop variables as defined
     for node in ast.walk(tree):
         if isinstance(node, (ast.For, ast.comprehension)):
-            target = node.target if isinstance(node, ast.For) else node.target
+            target = node.target
             for n in ast.walk(target):
                 if isinstance(n, ast.Name):
                     defined.add(n.id)

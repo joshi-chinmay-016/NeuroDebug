@@ -4,15 +4,14 @@ Patch Generator Service.
 Orchestrates the generation of code patches using LLM and validation.
 """
 
-import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Any
 
+from llm.client import GroqClient
 from models.errors import LLMError, PatchGenerationError
 from models.responses import PatchResponse
-from llm.client import GroqClient
-from services.patch_validator import PatchValidator
 from services.diff_service import DiffService
+from services.patch_validator import PatchValidator
 from utils.logging import get_logger, log_pipeline_stage
 
 logger = get_logger("neurodebug.patch_generator")
@@ -21,7 +20,7 @@ logger = get_logger("neurodebug.patch_generator")
 class PatchGenerator:
     """Service for generating and validating code patches."""
 
-    def __init__(self, llm_client: Optional[GroqClient] = None):
+    def __init__(self, llm_client: GroqClient | None = None):
         """
         Initialize the patch generator.
 
@@ -35,8 +34,8 @@ class PatchGenerator:
     async def generate_patch(
         self,
         code: str,
-        symbolic_issues: list[Dict[str, Any]],
-        api_key: Optional[str] = None
+        symbolic_issues: list[dict[str, Any]],
+        api_key: str | None = None,
     ) -> PatchResponse:
         """
         Generate a patch for the given code based on detected issues.
@@ -62,7 +61,7 @@ class PatchGenerator:
                 patched_code=code,
                 unified_diff="No changes - no issues detected.",
                 validation_passed=True,
-                validation_error=None
+                validation_error=None,
             )
 
         # Initialize LLM client if not provided
@@ -81,8 +80,7 @@ class PatchGenerator:
             logger.info("Generating patch with LLM")
             llm_start = time.time()
             patched_code = await self.llm_client.generate_patch(
-                code=code,
-                symbolic_issues=symbolic_issues
+                code=code, symbolic_issues=symbolic_issues
             )
             llm_duration = (time.time() - llm_start) * 1000
             log_pipeline_stage(logger, "llm_patch_generation", llm_duration)
@@ -90,14 +88,25 @@ class PatchGenerator:
             # Validate syntax
             logger.info("Validating patch syntax")
             val_start = time.time()
-            is_valid, validation_error = self.validator.validate_patch(code, patched_code)
+            is_valid, validation_error = self.validator.validate_patch(
+                code, patched_code
+            )
             val_duration = (time.time() - val_start) * 1000
-            log_pipeline_stage(logger, "patch_validation", val_duration, "success" if is_valid else "failed")
+            log_pipeline_stage(
+                logger,
+                "patch_validation",
+                val_duration,
+                "success" if is_valid else "failed",
+            )
 
             # Validate minimal change (heuristic)
-            minimal_valid, minimal_error = self.validator.validate_minimal_change(code, patched_code)
+            minimal_valid, minimal_error = self.validator.validate_minimal_change(
+                code, patched_code
+            )
             if not minimal_valid:
-                logger.warning("Patch validation failed (minimal change): %s", minimal_error)
+                logger.warning(
+                    "Patch validation failed (minimal change): %s", minimal_error
+                )
                 if not validation_error:
                     validation_error = minimal_error
 
@@ -112,7 +121,7 @@ class PatchGenerator:
             logger.info(
                 "Patch generation complete: valid=%s duration_ms=%.2f",
                 is_valid,
-                total_duration
+                total_duration,
             )
 
             return PatchResponse(
@@ -120,20 +129,18 @@ class PatchGenerator:
                 patched_code=patched_code,
                 unified_diff=unified_diff,
                 validation_passed=is_valid,
-                validation_error=validation_error
+                validation_error=validation_error,
             )
 
         except LLMError as exc:
             logger.error("LLM error during patch generation: %s", exc)
             raise PatchGenerationError(f"LLM error: {exc.message}") from exc
         except Exception as exc:
-            logger.exception("Unexpected error during patch generation: %s", exc)
+            logger.exception("Unexpected error during patch generation")
             raise PatchGenerationError(f"Unexpected error: {exc}") from exc
 
     def generate_patch_fallback(
-        self,
-        code: str,
-        symbolic_issues: list[Dict[str, Any]]
+        self, code: str, symbolic_issues: list[dict[str, Any]]
     ) -> PatchResponse:
         """
         Generate a fallback patch when LLM is not available.
@@ -154,5 +161,5 @@ class PatchGenerator:
             patched_code=code,
             unified_diff="No patch generated - LLM unavailable.",
             validation_passed=True,
-            validation_error=None
+            validation_error=None,
         )

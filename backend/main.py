@@ -6,12 +6,13 @@ FastAPI server with clean architecture for neuro-symbolic code debugging.
 
 import time
 import uuid
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes import debug_router
-from utils.logging import configure_logging, get_logger
 from utils.config import Config
+from utils.logging import configure_logging, get_logger
 
 # ──────────────────────────────────────────────────────────────────
 # Logging Configuration
@@ -40,6 +41,7 @@ app.add_middleware(
 # Include routes
 app.include_router(debug_router, tags=["debug"])
 
+
 # ──────────────────────────────────────────────────────────────────
 # Middleware — request timing and request ID
 # ──────────────────────────────────────────────────────────────────
@@ -60,7 +62,7 @@ async def log_requests(request: Request, call_next):
         request.url.path,
         response.status_code,
         duration,
-        request_id
+        request_id,
     )
 
     # Add request ID to response headers
@@ -78,5 +80,5 @@ async def root():
         "service": Config.APP_NAME,
         "version": Config.APP_VERSION,
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
     }

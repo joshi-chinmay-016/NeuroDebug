@@ -1,17 +1,18 @@
 """Response models for API endpoints."""
 
+from typing import ClassVar
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 
 class SymbolicIssue(BaseModel):
-    """Model for a symbolic analysis issue."""
+    """Represents a symbolic analysis issue."""
 
     rule_id: str = Field(..., description="Rule identifier")
     severity: str = Field(..., description="Severity level: error, warning, info")
     category: str = Field(..., description="Issue category")
     message: str = Field(..., description="Issue description")
-    line: Optional[int] = Field(None, description="Line number if applicable")
+    line: int | None = Field(None, description="Line number if applicable")
 
 
 class PatchResponse(BaseModel):
@@ -20,24 +21,32 @@ class PatchResponse(BaseModel):
     original_code: str = Field(..., description="Original code")
     patched_code: str = Field(..., description="Generated patch")
     unified_diff: str = Field(..., description="Unified diff format")
-    validation_passed: bool = Field(..., description="Whether patch passes syntax validation")
-    validation_error: Optional[str] = Field(None, description="Validation error if any")
+    validation_passed: bool = Field(
+        ..., description="Whether patch passes syntax validation"
+    )
+    validation_error: str | None = Field(None, description="Validation error if any")
 
 
 class DebugResponse(BaseModel):
     """Response model for debug endpoint."""
 
-    detected_issues: List[SymbolicIssue] = Field(default_factory=list, description="Issues detected by analysis")
-    candidate_patch: Optional[PatchResponse] = Field(None, description="Generated patch if available")
+    detected_issues: list[SymbolicIssue] = Field(
+        default_factory=list, description="Issues detected by analysis"
+    )
+    candidate_patch: PatchResponse | None = Field(
+        None, description="Generated patch if available"
+    )
     error_type: str = Field(..., description="Type of error detected")
     explanation: str = Field(..., description="Explanation of the issue")
-    confidence_score: float = Field(..., ge=0.0, le=1.0, description="Confidence in the analysis")
+    confidence_score: float = Field(
+        ..., ge=0.0, le=1.0, description="Confidence in the analysis"
+    )
     patch_status: str = Field(..., description="Status of patch generation")
     validation_result: str = Field(..., description="Result of patch validation")
     metadata: dict = Field(default_factory=dict, description="Additional metadata")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict] = {
             "example": {
                 "detected_issues": [
                     {
@@ -45,7 +54,7 @@ class DebugResponse(BaseModel):
                         "severity": "error",
                         "category": "UndefinedVariable",
                         "message": "Name 'undefined_var' is used but never defined",
-                        "line": None
+                        "line": None,
                     }
                 ],
                 "candidate_patch": {
@@ -53,7 +62,7 @@ class DebugResponse(BaseModel):
                     "patched_code": "x = 'some value'\nprint(x)",
                     "unified_diff": "--- a/original.py\n+++ b/patched.py\n@@ -1,2 +1,2 @@\n-x = undefined_var\n+x = 'some value'\n print(x)",
                     "validation_passed": True,
-                    "validation_error": None
+                    "validation_error": None,
                 },
                 "error_type": "UndefinedVariable",
                 "explanation": "The name 'undefined_var' is used on line 1 but was never defined",
@@ -63,10 +72,10 @@ class DebugResponse(BaseModel):
                 "metadata": {
                     "ast_duration_ms": 15,
                     "llm_duration_ms": 1250,
-                    "validation_duration_ms": 5
-                }
+                    "validation_duration_ms": 5,
+                },
             }
-        }
+        }  # type: ignore[assignment]
 
 
 class HealthResponse(BaseModel):

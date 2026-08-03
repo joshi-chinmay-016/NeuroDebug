@@ -5,10 +5,10 @@ Provides a clean interface for interacting with the Groq API.
 """
 
 import json
-import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
-from openai import AsyncOpenAI, AuthenticationError, RateLimitError, APIConnectionError
+from openai import APIConnectionError, AsyncOpenAI, AuthenticationError, RateLimitError
+
 from models.errors import LLMError
 from utils.config import Config
 from utils.logging import get_logger
@@ -19,7 +19,7 @@ logger = get_logger("neurodebug.llm_client")
 class GroqClient:
     """Client for Groq API interactions."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize the Groq client.
 
@@ -36,7 +36,7 @@ class GroqClient:
         if not Config.validate_api_key(resolved_key):
             raise LLMError(
                 "Invalid Groq API key format (must start with 'gsk_')",
-                error_type="invalid_key"
+                error_type="invalid_key",
             )
 
         self.client = AsyncOpenAI(
@@ -48,8 +48,8 @@ class GroqClient:
     async def generate_patch(
         self,
         code: str,
-        symbolic_issues: list[Dict[str, Any]],
-        system_prompt: Optional[str] = None
+        symbolic_issues: list[dict[str, Any]],
+        system_prompt: str | None = None,
     ) -> str:
         """
         Generate a code patch using the LLM.
@@ -66,10 +66,7 @@ class GroqClient:
             LLMError: If the API call fails.
         """
         if not self.client:
-            raise LLMError(
-                "No Groq API key available",
-                error_type="no_api_key"
-            )
+            raise LLMError("No Groq API key available", error_type="no_api_key")
 
         from llm.prompt_builder import PromptBuilder
 
@@ -103,15 +100,15 @@ class GroqClient:
             raise LLMError("API connection error", "connection_error", str(exc))
 
         except Exception as exc:
-            logger.exception("Unexpected Groq API failure: %s", exc)
+            logger.exception("Unexpected Groq API failure")
             raise LLMError("Unexpected API failure", "api_error", str(exc))
 
     async def generate_analysis(
         self,
         code: str,
-        symbolic_issues: list[Dict[str, Any]],
-        system_prompt: Optional[str] = None
-    ) -> Dict[str, Any]:
+        symbolic_issues: list[dict[str, Any]],
+        system_prompt: str | None = None,
+    ) -> dict[str, Any]:
         """
         Generate code analysis (explanation) using the LLM.
 
@@ -127,10 +124,7 @@ class GroqClient:
             LLMError: If the API call fails.
         """
         if not self.client:
-            raise LLMError(
-                "No Groq API key available",
-                error_type="no_api_key"
-            )
+            raise LLMError("No Groq API key available", error_type="no_api_key")
 
         from llm.prompt_builder import PromptBuilder
 
@@ -164,7 +158,7 @@ class GroqClient:
             raise LLMError("API connection error", "connection_error", str(exc))
 
         except Exception as exc:
-            logger.exception("Unexpected Groq API failure: %s", exc)
+            logger.exception("Unexpected Groq API failure")
             raise LLMError("Unexpected API failure", "api_error", str(exc))
 
     @staticmethod
@@ -180,15 +174,15 @@ class GroqClient:
         """
         cleaned = (
             raw.strip()
-               .removeprefix("```python")
-               .removeprefix("```")
-               .removesuffix("```")
-               .strip()
+            .removeprefix("```python")
+            .removeprefix("```")
+            .removesuffix("```")
+            .strip()
         )
         return cleaned
 
     @staticmethod
-    def _parse_json_response(raw: str) -> Dict[str, Any]:
+    def _parse_json_response(raw: str) -> dict[str, Any]:
         """
         Parse LLM response as JSON, stripping markdown fences if present.
 
@@ -203,15 +197,20 @@ class GroqClient:
         """
         cleaned = (
             raw.strip()
-               .removeprefix("```json")
-               .removeprefix("```")
-               .removesuffix("```")
-               .strip()
+            .removeprefix("```json")
+            .removeprefix("```")
+            .removesuffix("```")
+            .strip()
         )
 
         try:
             parsed = json.loads(cleaned)
-            required = {"error_type", "explanation", "suggested_fix", "confidence_score"}
+            required = {
+                "error_type",
+                "explanation",
+                "suggested_fix",
+                "confidence_score",
+            }
             missing = required - parsed.keys()
             if missing:
                 logger.warning("LLM response missing keys: %s", missing)

@@ -1,6 +1,6 @@
 """Utils module for shared utilities."""
 
-from .logging import configure_logging, get_logger
 from .config import Config
+from .logging import configure_logging, get_logger
 
-__all__ = ["configure_logging", "get_logger", "Config"]
+__all__ = ["Config", "configure_logging", "get_logger"]

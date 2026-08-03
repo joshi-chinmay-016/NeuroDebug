@@ -2,7 +2,6 @@
 Unit tests for Patch Validator service.
 """
 
-import pytest
 from services.patch_validator import PatchValidator
 
 
@@ -104,7 +103,7 @@ complex_function()"""
         """Test minimal change validation allows more flexibility for short code."""
         original = "x = 1"
         patched = "y = 2"
-        is_valid, error = PatchValidator.validate_minimal_change(original, patched)
+        is_valid, _error = PatchValidator.validate_minimal_change(original, patched)
         # Short code should pass even with complete change
         assert is_valid is True
 

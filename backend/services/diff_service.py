@@ -5,8 +5,6 @@ Generates unified diff format for code patches using difflib.
 """
 
 import difflib
-import logging
-from typing import Optional
 
 from utils.logging import get_logger
 
@@ -22,7 +20,7 @@ class DiffService:
         patched_code: str,
         original_filename: str = "original.py",
         patched_filename: str = "patched.py",
-        context_lines: int = 3
+        context_lines: int = 3,
     ) -> str:
         """
         Generate a unified diff between original and patched code.
@@ -46,7 +44,7 @@ class DiffService:
             fromfile=original_filename,
             tofile=patched_filename,
             lineterm="",
-            n=context_lines
+            n=context_lines,
         )
 
         diff_text = "\n".join(diff)
@@ -59,10 +57,7 @@ class DiffService:
         return diff_text
 
     @staticmethod
-    def count_changed_lines(
-        original_code: str,
-        patched_code: str
-    ) -> dict:
+    def count_changed_lines(original_code: str, patched_code: str) -> dict:
         """
         Count the number of added, removed, and changed lines.
 
@@ -90,11 +85,7 @@ class DiffService:
             elif tag == "delete":
                 removed += i2 - i1
 
-        return {
-            "added": added,
-            "removed": removed,
-            "changed": changed
-        }
+        return {"added": added, "removed": removed, "changed": changed}
 
     @staticmethod
     def has_changes(original_code: str, patched_code: str) -> bool:

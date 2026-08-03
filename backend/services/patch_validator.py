@@ -5,10 +5,7 @@ Validates generated code patches using Python AST parsing.
 """
 
 import ast
-import logging
-from typing import Tuple
 
-from models.errors import ValidationError
 from utils.logging import get_logger
 
 logger = get_logger("neurodebug.patch_validator")
@@ -18,7 +15,7 @@ class PatchValidator:
     """Validates Python code patches using AST parsing."""
 
     @staticmethod
-    def validate_syntax(code: str) -> Tuple[bool, str | None]:
+    def validate_syntax(code: str) -> tuple[bool, str | None]:
         """
         Validate Python code syntax using AST parsing.
 
@@ -38,16 +35,15 @@ class PatchValidator:
             error_msg = f"SyntaxError at line {exc.lineno}: {exc.msg}"
             logger.warning("Code validation failed: %s", error_msg)
             return False, error_msg
-        except Exception as exc:
+        except (ValueError, RecursionError) as exc:
             error_msg = f"Unexpected validation error: {exc}"
             logger.error("Code validation failed: %s", error_msg)
             return False, error_msg
 
     @staticmethod
     def validate_patch(
-        original_code: str,
-        patched_code: str
-    ) -> Tuple[bool, str | None]:
+        original_code: str, patched_code: str
+    ) -> tuple[bool, str | None]:
         """
         Validate a patch by checking that the patched code has valid syntax.
 
@@ -63,10 +59,8 @@ class PatchValidator:
 
     @staticmethod
     def validate_minimal_change(
-        original_code: str,
-        patched_code: str,
-        max_line_ratio: float = 0.5
-    ) -> Tuple[bool, str | None]:
+        original_code: str, patched_code: str, max_line_ratio: float = 0.5
+    ) -> tuple[bool, str | None]:
         """
         Validate that the patch makes minimal changes to the original code.
 
@@ -90,8 +84,10 @@ class PatchValidator:
         # Count changed lines
         max_lines = max(len(original_lines), len(patched_lines))
         changed_lines = sum(
-            1 for i in range(max_lines)
-            if i >= len(original_lines) or i >= len(patched_lines)
+            1
+            for i in range(max_lines)
+            if i >= len(original_lines)
+            or i >= len(patched_lines)
             or original_lines[i].strip() != patched_lines[i].strip()
         )
 
@@ -106,5 +102,9 @@ class PatchValidator:
             logger.warning("Minimal change validation failed: %s", error_msg)
             return False, error_msg
 
-        logger.debug("Minimal change validation passed: %d/%d lines changed", changed_lines, max_lines)
+        logger.debug(
+            "Minimal change validation passed: %d/%d lines changed",
+            changed_lines,
+            max_lines,
+        )
         return True, None

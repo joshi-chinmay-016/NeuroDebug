@@ -4,7 +4,7 @@ Prompt Builder for LLM interactions.
 Provides reusable prompt templates for code analysis and patch generation.
 """
 
-from typing import List, Dict, Any
+from typing import Any
 
 
 class PromptBuilder:
@@ -45,10 +45,7 @@ If you cannot determine an issue, still return valid JSON with best-effort value
 """.strip()
 
     @staticmethod
-    def build_patch_prompt(
-        code: str,
-        symbolic_issues: List[Dict[str, Any]]
-    ) -> str:
+    def build_patch_prompt(code: str, symbolic_issues: list[dict[str, Any]]) -> str:
         """
         Build a prompt for patch generation.
 
@@ -71,10 +68,7 @@ If you cannot determine an issue, still return valid JSON with best-effort value
         )
 
     @staticmethod
-    def build_analysis_prompt(
-        code: str,
-        symbolic_issues: List[Dict[str, Any]]
-    ) -> str:
+    def build_analysis_prompt(code: str, symbolic_issues: list[dict[str, Any]]) -> str:
         """
         Build a prompt for code analysis (explanation generation).
 
@@ -96,7 +90,7 @@ If you cannot determine an issue, still return valid JSON with best-effort value
         )
 
     @staticmethod
-    def _format_findings(issues: List[Dict[str, Any]]) -> str:
+    def _format_findings(issues: list[dict[str, Any]]) -> str:
         """Format symbolic findings into a readable block."""
         if not issues:
             return "  (no issues detected)"
@@ -108,7 +102,5 @@ If you cannot determine an issue, still return valid JSON with best-effort value
             message = issue.get("message", "")
             line = issue.get("line")
             line_info = f" (line {line})" if line else ""
-            formatted.append(
-                f"  [{i}] [{severity}] {category}: {message}{line_info}"
-            )
+            formatted.append(f"  [{i}] [{severity}] {category}: {message}{line_info}")
         return "\n".join(formatted)

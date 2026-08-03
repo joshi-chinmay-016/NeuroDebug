@@ -2,10 +2,12 @@
 Unit tests for Debug Service.
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from services.debug_service import DebugService
+
 from models.errors import AnalysisError
+from services.debug_service import DebugService
 
 
 class TestDebugService:
@@ -20,10 +22,12 @@ class TestDebugService:
         """Test error type determination with syntax error."""
         ast_result = {
             "syntax_error": "SyntaxError at line 1: invalid syntax",
-            "success": False
+            "success": False,
         }
         rule_issues = []
-        error_type, confidence = debug_service._determine_error_type(ast_result, rule_issues)
+        error_type, confidence = debug_service._determine_error_type(
+            ast_result, rule_issues
+        )
         assert error_type == "SyntaxError"
         assert confidence == 1.0
 
@@ -35,10 +39,12 @@ class TestDebugService:
                 "rule_id": "R002",
                 "severity": "error",
                 "category": "UndefinedVariable",
-                "message": "Name 'x' is not defined"
+                "message": "Name 'x' is not defined",
             }
         ]
-        error_type, confidence = debug_service._determine_error_type(ast_result, rule_issues)
+        error_type, confidence = debug_service._determine_error_type(
+            ast_result, rule_issues
+        )
         assert error_type == "UndefinedVariable"
         assert confidence == 0.9
 
@@ -50,10 +56,12 @@ class TestDebugService:
                 "rule_id": "R004",
                 "severity": "warning",
                 "category": "BareExcept",
-                "message": "Bare except clause"
+                "message": "Bare except clause",
             }
         ]
-        error_type, confidence = debug_service._determine_error_type(ast_result, rule_issues)
+        error_type, confidence = debug_service._determine_error_type(
+            ast_result, rule_issues
+        )
         assert error_type == "BareExcept"
         assert confidence == 0.7
 
@@ -61,7 +69,9 @@ class TestDebugService:
         """Test error type determination with no issues."""
         ast_result = {"syntax_error": None, "success": True}
         rule_issues = []
-        error_type, confidence = debug_service._determine_error_type(ast_result, rule_issues)
+        error_type, confidence = debug_service._determine_error_type(
+            ast_result, rule_issues
+        )
         assert error_type == "Clean"
         assert confidence == 1.0
 
@@ -69,7 +79,7 @@ class TestDebugService:
         """Test explanation generation with syntax error."""
         ast_result = {
             "syntax_error": "SyntaxError at line 1: missing colon",
-            "success": False
+            "success": False,
         }
         rule_issues = []
         explanation = debug_service._generate_explanation(ast_result, rule_issues)
@@ -91,14 +101,14 @@ class TestDebugService:
                 "rule_id": "R002",
                 "severity": "error",
                 "category": "UndefinedVariable",
-                "message": "Name 'x' is not defined"
+                "message": "Name 'x' is not defined",
             },
             {
                 "rule_id": "R004",
                 "severity": "warning",
                 "category": "BareExcept",
-                "message": "Bare except clause"
-            }
+                "message": "Bare except clause",
+            },
         ]
         explanation = debug_service._generate_explanation(ast_result, rule_issues)
         assert "Detected issues" in explanation
@@ -113,7 +123,7 @@ class TestDebugService:
                 "rule_id": f"R00{i}",
                 "severity": "error",
                 "category": f"Error{i}",
-                "message": f"Error message {i}"
+                "message": f"Error message {i}",
             }
             for i in range(1, 6)
         ]
@@ -129,18 +139,22 @@ class TestDebugService:
         assert result is not None
 
     @pytest.mark.asyncio
-    @patch('services.debug_service.analyze_code_ast')
-    @patch('services.debug_service.apply_rules')
-    async def test_debug_code_ast_failure(self, mock_apply_rules, mock_analyze, debug_service):
+    @patch("services.debug_service.analyze_code_ast")
+    @patch("services.debug_service.apply_rules")
+    async def test_debug_code_ast_failure(
+        self, mock_apply_rules, mock_analyze, debug_service
+    ):
         """Test debug_code handles AST analysis failure."""
         mock_analyze.side_effect = Exception("AST parse failed")
         with pytest.raises(AnalysisError):
             await debug_service.debug_code("x = 1", None)
 
     @pytest.mark.asyncio
-    @patch('services.debug_service.analyze_code_ast')
-    @patch('services.debug_service.apply_rules')
-    async def test_debug_code_rule_failure(self, mock_apply_rules, mock_analyze, debug_service):
+    @patch("services.debug_service.analyze_code_ast")
+    @patch("services.debug_service.apply_rules")
+    async def test_debug_code_rule_failure(
+        self, mock_apply_rules, mock_analyze, debug_service
+    ):
         """Test debug_code handles rule engine failure."""
         mock_analyze.return_value = {"success": True, "syntax_error": None}
         mock_apply_rules.side_effect = Exception("Rule engine failed")

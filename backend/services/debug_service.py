@@ -5,19 +5,18 @@ Orchestrates the entire debug pipeline: AST analysis, rule engine, LLM analysis,
 patch generation, validation, and diff generation.
 """
 
-import logging
 import time
 import uuid
-from typing import Optional, Dict, Any
+from typing import Any
 
-from models.errors import LLMError, AnalysisError
-from models.responses import DebugResponse, SymbolicIssue, PatchResponse
 from analysis.ast_parser import analyze_code_ast
 from analysis.rule_engine import apply_rules
 from llm.client import GroqClient
+from models.errors import AnalysisError, LLMError, PatchGenerationError
+from models.responses import DebugResponse, PatchResponse, SymbolicIssue
 from services.patch_generator import PatchGenerator
-from utils.logging import get_logger, set_request_id, log_pipeline_stage
 from utils.config import Config
+from utils.logging import get_logger, log_pipeline_stage, set_request_id
 
 logger = get_logger("neurodebug.debug_service")
 
@@ -25,7 +24,7 @@ logger = get_logger("neurodebug.debug_service")
 class DebugService:
     """Orchestrates the complete debug pipeline."""
 
-    def __init__(self, llm_client: Optional[GroqClient] = None):
+    def __init__(self, llm_client: GroqClient | None = None):
         """
         Initialize the debug service.
 
@@ -35,11 +34,7 @@ class DebugService:
         self.llm_client = llm_client
         self.patch_generator = PatchGenerator(llm_client)
 
-    async def debug_code(
-        self,
-        code: str,
-        api_key: Optional[str] = None
-    ) -> DebugResponse:
+    async def debug_code(self, code: str, api_key: str | None = None) -> DebugResponse:
         """
         Execute the complete debug pipeline.
 
@@ -86,15 +81,19 @@ class DebugService:
             rule_issues = apply_rules(code, ast_result)
             rule_duration = (time.time() - rule_start) * 1000
             metadata["rule_duration_ms"] = round(rule_duration, 2)
-            log_pipeline_stage(logger, "rule_engine", rule_duration, "success", issues_found=len(rule_issues))
+            log_pipeline_stage(
+                logger,
+                "rule_engine",
+                rule_duration,
+                "success",
+                issues_found=len(rule_issues),
+            )
         except Exception as exc:
             logger.exception("Rule engine failed")
             raise AnalysisError(f"Rule engine failed: {exc}") from exc
 
         # Convert to SymbolicIssue models
-        symbolic_issues = [
-            SymbolicIssue(**issue) for issue in rule_issues
-        ]
+        symbolic_issues = [SymbolicIssue(**issue) for issue in rule_issues]
 
         # Determine error type and confidence
         error_type, confidence = self._determine_error_type(ast_result, rule_issues)
@@ -117,7 +116,10 @@ class DebugService:
                 # Use LLM results if available
                 if llm_analysis.get("explanation"):
                     explanation = llm_analysis["explanation"]
-                if llm_analysis.get("error_type") and llm_analysis["error_type"] != "Unknown":
+                if (
+                    llm_analysis.get("error_type")
+                    and llm_analysis["error_type"] != "Unknown"
+                ):
                     error_type = llm_analysis["error_type"]
                 if llm_analysis.get("confidence_score"):
                     confidence = llm_analysis["confidence_score"]
@@ -130,27 +132,35 @@ class DebugService:
                 metadata["llm_error"] = exc.error_type
 
         # Step 4: Patch Generation (if issues detected)
-        candidate_patch: Optional[PatchResponse] = None
+        candidate_patch: PatchResponse | None = None
         patch_status = "not_generated"
         validation_result = "not_attempted"
 
-        if rule_issues and resolved_api_key and Config.validate_api_key(resolved_api_key):
+        if (
+            rule_issues
+            and resolved_api_key
+            and Config.validate_api_key(resolved_api_key)
+        ):
             logger.info("Step 4: Generating patch")
             try:
                 patch_start = time.time()
                 candidate_patch = await self.patch_generator.generate_patch(
-                    code=code,
-                    symbolic_issues=rule_issues,
-                    api_key=resolved_api_key
+                    code=code, symbolic_issues=rule_issues, api_key=resolved_api_key
                 )
                 patch_duration = (time.time() - patch_start) * 1000
                 metadata["patch_generation_duration_ms"] = round(patch_duration, 2)
                 log_pipeline_stage(logger, "patch_generation", patch_duration)
 
-                patch_status = "generated" if candidate_patch.validation_passed else "generated_invalid"
-                validation_result = "valid" if candidate_patch.validation_passed else "invalid"
+                patch_status = (
+                    "generated"
+                    if candidate_patch.validation_passed
+                    else "generated_invalid"
+                )
+                validation_result = (
+                    "valid" if candidate_patch.validation_passed else "invalid"
+                )
 
-            except Exception as exc:
+            except (LLMError, PatchGenerationError) as exc:
                 logger.warning("Patch generation failed: %s", exc)
                 patch_status = "failed"
                 validation_result = "failed"
@@ -168,7 +178,7 @@ class DebugService:
             confidence,
             patch_status,
             validation_result,
-            total_duration
+            total_duration,
         )
 
         return DebugResponse(
@@ -179,13 +189,11 @@ class DebugService:
             confidence_score=confidence,
             patch_status=patch_status,
             validation_result=validation_result,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def _determine_error_type(
-        self,
-        ast_result: Dict[str, Any],
-        rule_issues: list[Dict[str, Any]]
+        self, ast_result: dict[str, Any], rule_issues: list[dict[str, Any]]
     ) -> tuple[str, float]:
         """
         Determine the dominant error type and confidence from analysis results.
@@ -215,9 +223,7 @@ class DebugService:
         return "Clean", 1.0
 
     def _generate_explanation(
-        self,
-        ast_result: Dict[str, Any],
-        rule_issues: list[Dict[str, Any]]
+        self, ast_result: dict[str, Any], rule_issues: list[dict[str, Any]]
     ) -> str:
         """
         Generate an explanation from symbolic analysis results.

@@ -1,10 +1,8 @@
 """Structured logging configuration for NeuroDebug."""
 
 import logging
-import uuid
 from contextvars import ContextVar
 from typing import Any
-from datetime import datetime
 
 # Context variable for request-scoped logging
 _request_id: ContextVar[str] = ContextVar("request_id", default="")

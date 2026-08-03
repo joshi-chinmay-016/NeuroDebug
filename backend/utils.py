@@ -3,7 +3,8 @@ NeuroDebug — Utility Functions
 
 Merges symbolic + neural outputs into a single, consistent response.
 """
-# imports 
+
+# imports
 import logging
 from typing import Any
 
@@ -14,10 +15,11 @@ logger = logging.getLogger("neurodebug.utils")
 # Merge logic
 # ──────────────────────────────────────────────────────────────────
 
+
 def merge_results(
-    ast_result:     dict[str, Any],
-    rule_issues:    list[dict],
-    llm_result:     dict[str, Any],
+    ast_result: dict[str, Any],
+    rule_issues: list[dict],
+    llm_result: dict[str, Any],
 ) -> dict[str, Any]:
     """
     Combine symbolic and neural analysis into a single coherent result.
@@ -29,7 +31,9 @@ def merge_results(
     """
 
     syntax_err = ast_result.get("syntax_error")
-    symbolic_error_types = {i["category"] for i in rule_issues if i["severity"] == "error"}
+    symbolic_error_types = {
+        i["category"] for i in rule_issues if i["severity"] == "error"
+    }
     llm_error_type = llm_result.get("error_type", "Unknown")
     llm_confidence = float(llm_result.get("confidence_score", 0.5))
 
@@ -46,21 +50,27 @@ def merge_results(
     # ── Adjust confidence ────────────────────────────────────────
     confidence = llm_confidence
     if symbolic_error_types and final_error_type in symbolic_error_types:
-        confidence = min(1.0, confidence + 0.1)   # agreement boosts confidence
+        confidence = min(1.0, confidence + 0.1)  # agreement boosts confidence
     elif symbolic_error_types and final_error_type not in symbolic_error_types:
         confidence = max(0.0, confidence - 0.05)  # disagreement reduces slightly
 
     # ── Build merged result ──────────────────────────────────────
     merged = {
-        "error_type":      final_error_type,
-        "explanation":     llm_result.get("explanation", _symbolic_explanation(rule_issues)),
-        "suggested_fix":   llm_result.get("suggested_fix", ""),
+        "error_type": final_error_type,
+        "explanation": llm_result.get(
+            "explanation", _symbolic_explanation(rule_issues)
+        ),
+        "suggested_fix": llm_result.get("suggested_fix", ""),
         "confidence_score": round(confidence, 3),
         "symbolic_issues": rule_issues,
         "raw_errors": _collect_raw_errors(ast_result, rule_issues),
     }
 
-    logger.debug("Merge complete: error_type=%s confidence=%.3f", merged["error_type"], merged["confidence_score"])
+    logger.debug(
+        "Merge complete: error_type=%s confidence=%.3f",
+        merged["error_type"],
+        merged["confidence_score"],
+    )
     return merged
 
 
@@ -85,13 +95,14 @@ def _collect_raw_errors(ast_result: dict, rule_issues: list[dict]) -> list[str]:
 # Response formatter
 # ──────────────────────────────────────────────────────────────────
 
+
 def format_response(merged: dict[str, Any]) -> dict[str, Any]:
     """Ensure the final dict exactly matches the DebugResponse schema."""
     return {
-        "error_type":      merged.get("error_type", "Unknown"),
-        "explanation":     merged.get("explanation", ""),
-        "suggested_fix":   merged.get("suggested_fix", ""),
+        "error_type": merged.get("error_type", "Unknown"),
+        "explanation": merged.get("explanation", ""),
+        "suggested_fix": merged.get("suggested_fix", ""),
         "confidence_score": float(merged.get("confidence_score", 0.0)),
         "symbolic_issues": merged.get("symbolic_issues", []),
-        "raw_errors":      merged.get("raw_errors", []),
+        "raw_errors": merged.get("raw_errors", []),
     }

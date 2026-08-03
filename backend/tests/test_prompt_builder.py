@@ -2,7 +2,6 @@
 Unit tests for Prompt Builder.
 """
 
-import pytest
 from llm.prompt_builder import PromptBuilder
 
 
@@ -18,7 +17,7 @@ class TestPromptBuilder:
                 "severity": "error",
                 "category": "UndefinedVariable",
                 "message": "Name 'undefined_var' is used but never defined",
-                "line": 1
+                "line": 1,
             }
         ]
         prompt = PromptBuilder.build_patch_prompt(code, issues)
@@ -44,7 +43,7 @@ class TestPromptBuilder:
                 "severity": "error",
                 "category": "SyntaxError",
                 "message": "Invalid syntax",
-                "line": 1
+                "line": 1,
             }
         ]
         prompt = PromptBuilder.build_analysis_prompt(code, issues)
@@ -60,7 +59,7 @@ class TestPromptBuilder:
                 "severity": "error",
                 "category": "UndefinedVariable",
                 "message": "Name 'x' is not defined",
-                "line": 1
+                "line": 1,
             }
         ]
         formatted = PromptBuilder._format_findings(issues)
@@ -76,15 +75,15 @@ class TestPromptBuilder:
                 "severity": "error",
                 "category": "UndefinedVariable",
                 "message": "Name 'x' is not defined",
-                "line": 1
+                "line": 1,
             },
             {
                 "rule_id": "R004",
                 "severity": "warning",
                 "category": "BareExcept",
                 "message": "Bare except clause",
-                "line": 2
-            }
+                "line": 2,
+            },
         ]
         formatted = PromptBuilder._format_findings(issues)
         assert "[1]" in formatted
@@ -100,7 +99,7 @@ class TestPromptBuilder:
                 "severity": "error",
                 "category": "UndefinedVariable",
                 "message": "Name 'x' is not defined",
-                "line": 5
+                "line": 5,
             }
         ]
         formatted = PromptBuilder._format_findings(issues)
@@ -114,7 +113,7 @@ class TestPromptBuilder:
                 "severity": "error",
                 "category": "UndefinedVariable",
                 "message": "Name 'x' is not defined",
-                "line": None
+                "line": None,
             }
         ]
         formatted = PromptBuilder._format_findings(issues)

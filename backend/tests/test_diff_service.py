@@ -2,7 +2,6 @@
 Unit tests for Diff Service.
 """
 
-import pytest
 from services.diff_service import DiffService
 
 
@@ -31,10 +30,7 @@ class TestDiffService:
         original = "x = 1"
         patched = "x = 2"
         diff = DiffService.generate_unified_diff(
-            original,
-            patched,
-            original_filename="file1.py",
-            patched_filename="file2.py"
+            original, patched, original_filename="file1.py", patched_filename="file2.py"
         )
         assert "--- file1.py" in diff
         assert "+++ file2.py" in diff
