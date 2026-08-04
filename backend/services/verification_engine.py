@@ -12,7 +12,7 @@ from typing import Any
 
 from services.execution_layer import ExecutionLayer, ExecutionResult
 from services.test_runner import TestRunner, TestSuiteResult
-from utils.logging import get_logger, log_pipeline_stage, log_verification_stage
+from utils.logging import get_logger, log_verification_stage
 
 logger = get_logger("neurodebug.verification_engine")
 
@@ -98,7 +98,10 @@ class VerificationEngine:
         original_execution = self.execution_layer.execute_code(original_code)
         orig_duration = (time.time() - orig_start) * 1000
         log_verification_stage(
-            logger, "original_execution", orig_duration, "success" if original_execution.success else "failed"
+            logger,
+            "original_execution",
+            orig_duration,
+            "success" if original_execution.success else "failed",
         )
 
         # Step 2: Execute patched code
@@ -107,7 +110,10 @@ class VerificationEngine:
         patched_execution = self.execution_layer.execute_code(patched_code)
         patch_duration = (time.time() - patch_start) * 1000
         log_verification_stage(
-            logger, "patched_execution", patch_duration, "success" if patched_execution.success else "failed"
+            logger,
+            "patched_execution",
+            patch_duration,
+            "success" if patched_execution.success else "failed",
         )
 
         # Step 3: Run tests if provided
@@ -120,7 +126,10 @@ class VerificationEngine:
             )
             test_duration = (time.time() - test_start) * 1000
             log_verification_stage(
-                logger, "test_execution", test_duration, "success" if test_results.failed == 0 else "failed",
+                logger,
+                "test_execution",
+                test_duration,
+                "success" if test_results.failed == 0 else "failed",
                 tests_passed=test_results.passed,
                 tests_failed=test_results.failed,
             )
@@ -248,7 +257,9 @@ class VerificationEngine:
 
         # Patch is unverified if it still fails
         if not patched_execution.success:
-            failure_reason = f"Patched code failed with exit code {patched_execution.exit_code}"
+            failure_reason = (
+                f"Patched code failed with exit code {patched_execution.exit_code}"
+            )
             return VerificationStatus.UNVERIFIED, failure_reason
 
         # If original succeeded and patch succeeded, need more evidence

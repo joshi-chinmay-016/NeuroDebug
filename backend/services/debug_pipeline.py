@@ -54,9 +54,7 @@ class DebugPipeline:
         self.patch_generator = PatchGenerator(llm_client)
         self.verification_engine = verification_engine or VerificationEngine()
 
-    async def execute(
-        self, code: str, api_key: str | None = None
-    ) -> DebugResponse:
+    async def execute(self, code: str, api_key: str | None = None) -> DebugResponse:
         """
         Execute the complete debug pipeline with verification.
 
@@ -185,9 +183,7 @@ class DebugPipeline:
                             test_code=None,  # Tests not generated yet
                         )
                         verif_duration = (time.time() - verif_start) * 1000
-                        metadata["verification_duration_ms"] = round(
-                            verif_duration, 2
-                        )
+                        metadata["verification_duration_ms"] = round(verif_duration, 2)
                         log_pipeline_stage(
                             logger,
                             "verification",
@@ -196,15 +192,17 @@ class DebugPipeline:
                         )
 
                         # Convert to response model
-                        from routes.debug import _convert_verification_report_to_response
-
-                        verification_report = (
-                            _convert_verification_report_to_response(
-                                verification_report
-                            )
+                        from routes.debug import (
+                            _convert_verification_report_to_response,
                         )
 
-                    except Exception as exc:
+                        verification_report = _convert_verification_report_to_response(
+                            verification_report
+                        )
+
+                    # Verification is an optional stage. Catch unexpected exceptions at the
+                    # pipeline boundary so the request can still complete with a partial response.
+                    except Exception as exc:  # noqa: BLE001
                         logger.warning("Verification failed: %s", exc)
                         metadata["verification_error"] = str(exc)
 

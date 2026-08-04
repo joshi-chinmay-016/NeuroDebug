@@ -9,7 +9,6 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 
 @dataclass
@@ -107,6 +106,7 @@ class TestRunner:
                     text=True,
                     timeout=exec_timeout,
                     cwd=temp_dir,
+                    check=False,
                 )
 
                 output = result.stdout + result.stderr
@@ -115,17 +115,9 @@ class TestRunner:
                 if result.returncode not in [0, 1]:  # 0=all passed, 1=some failed
                     error = f"pytest exited with code {result.returncode}"
 
-            except subprocess.TimeoutExpired:
+            except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
                 error = f"Test execution timeout after {exec_timeout}s"
                 output = error
-
-            except FileNotFoundError:
-                error = "pytest not found in system PATH"
-                output = error
-
-            except Exception as exc:
-                error = f"Test execution error: {exc}"
-                output = str(exc)
 
         duration = time.time() - start_time
 
@@ -169,7 +161,9 @@ class TestRunner:
             if "::" in line or line.startswith("test_"):
                 parts = line.split()
                 if len(parts) >= 2:
-                    test_name = parts[0].split("::")[-1] if "::" in parts[0] else parts[0]
+                    test_name = (
+                        parts[0].split("::")[-1] if "::" in parts[0] else parts[0]
+                    )
                     status = parts[-1].upper()
 
                     passed = status == "PASSED"

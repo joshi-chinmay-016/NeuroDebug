@@ -88,7 +88,9 @@ class TestExecutionLayer:
 
         assert result.success is False
         assert result.traceback is not None
-        assert "Traceback" in result.traceback or "ZeroDivisionError" in result.traceback
+        assert (
+            "Traceback" in result.traceback or "ZeroDivisionError" in result.traceback
+        )
 
     def test_max_execution_time_enforced(self):
         """Test that MAX_EXECUTION_TIME is enforced."""

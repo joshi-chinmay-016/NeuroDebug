@@ -88,8 +88,12 @@ class VerificationReportResponse(BaseModel):
     verification_status: str = Field(..., description="VERIFIED or UNVERIFIED")
     execution_summary: str = Field(..., description="Human-readable execution summary")
     runtime: float = Field(..., description="Total verification runtime in seconds")
-    failure_reason: str | None = Field(None, description="Reason for verification failure")
-    evidence: VerificationEvidenceResponse = Field(..., description="Verification evidence")
+    failure_reason: str | None = Field(
+        None, description="Reason for verification failure"
+    )
+    evidence: VerificationEvidenceResponse = Field(
+        ..., description="Verification evidence"
+    )
 
     class Config:
         json_schema_extra: ClassVar[dict] = {

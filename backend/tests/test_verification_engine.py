@@ -2,8 +2,6 @@
 Tests for Verification Engine.
 """
 
-import pytest
-
 from services.execution_layer import ExecutionLayer
 from services.test_runner import TestRunner
 from services.verification_engine import VerificationEngine, VerificationStatus
@@ -54,6 +52,7 @@ class TestVerificationEngine:
     def test_verify_patch_with_timeout(self):
         """Test verification when patched code times out."""
         from services.execution_layer import ExecutionLayer
+
         custom_exec = ExecutionLayer(timeout=1.0)
         engine = VerificationEngine(execution_layer=custom_exec)
         original_code = "print('test')"

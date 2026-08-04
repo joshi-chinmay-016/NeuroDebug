@@ -10,9 +10,10 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from utils.logging import get_logger, log_execution_result
+
+logger = get_logger("neurodebug.execution_layer")
 
 
 @dataclass
@@ -98,6 +99,7 @@ class ExecutionLayer:
                 text=True,
                 timeout=exec_timeout,
                 cwd=working_dir,
+                check=False,
             )
 
             stdout = result.stdout
@@ -108,23 +110,21 @@ class ExecutionLayer:
             if stderr and "Traceback" in stderr:
                 traceback = self._extract_traceback(stderr)
 
-        except subprocess.TimeoutExpired:
+        except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
             timeout_occurred = True
             exit_code = -1
             stderr = f"Execution timeout after {exec_timeout}s"
             traceback = None
 
-        except Exception as exc:
-            exit_code = -1
-            stderr = f"Execution error: {exc}"
-            traceback = str(exc)
-
         finally:
             # Clean up temporary file
             try:
                 Path(temp_file_path).unlink()
-            except Exception:
-                pass
+
+            # Intentionally catch all unexpected exceptions at the pipeline boundary
+            # to prevent internal errors from propagating to API clients.
+            except OSError as exc:
+                logger.warning("Failed to delete temporary file: %s", exc)
 
         execution_time = time.time() - start_time
         success = exit_code == 0 and not timeout_occurred
