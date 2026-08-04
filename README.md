@@ -17,7 +17,7 @@
 
 **A production-grade AI-powered debugging platform that combines static AST analysis with dynamic execution verification**
 
-[Live Demo](#https://neuro-debug.vercel.app) • [Documentation](#documentation) • [Architecture](#system-architecture) • [Roadmap](#project-roadmap) • [Report Bug](https://github.com/joshi-chinmay-016/NeuroDebug/issues) • [Request Feature](https://github.com/joshi-chinmay-016/NeuroDebug/issues)
+[Live Demo](https://neuro-debug.vercel.app) • [Documentation](#documentation) • [Architecture](#system-architecture) • [Roadmap](#project-roadmap) • [Report Bug](https://github.com/joshi-chinmay-016/NeuroDebug/issues) • [Request Feature](https://github.com/joshi-chinmay-016/NeuroDebug/issues)
 
 </div>
 
