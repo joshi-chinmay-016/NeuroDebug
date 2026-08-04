@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from utils.logging import get_logger, log_execution_result
+
 
 @dataclass
 class ExecutionResult:
@@ -45,6 +47,7 @@ class ExecutionLayer:
             timeout: Default timeout for code execution in seconds.
         """
         self.timeout = min(timeout, self.MAX_EXECUTION_TIME)
+        self.logger = get_logger("neurodebug.execution_layer")
 
     def execute_code(
         self,
@@ -125,6 +128,16 @@ class ExecutionLayer:
 
         execution_time = time.time() - start_time
         success = exit_code == 0 and not timeout_occurred
+
+        # Log execution result
+        log_execution_result(
+            self.logger,
+            execution_type="subprocess",
+            success=success,
+            exit_code=exit_code,
+            execution_time=execution_time,
+            timeout_occurred=timeout_occurred,
+        )
 
         return ExecutionResult(
             success=success,

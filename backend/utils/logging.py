@@ -59,3 +59,39 @@ def log_pipeline_stage(
         duration_ms,
         metadata,
     )
+
+
+def log_verification_stage(
+    logger: logging.Logger,
+    stage: str,
+    duration_ms: float,
+    status: str = "success",
+    **metadata: Any,
+) -> None:
+    """Log a verification stage with timing and metadata."""
+    logger.info(
+        "Verification stage: stage=%s status=%s duration_ms=%.2f metadata=%s",
+        stage,
+        status,
+        duration_ms,
+        metadata,
+    )
+
+
+def log_execution_result(
+    logger: logging.Logger,
+    execution_type: str,
+    success: bool,
+    exit_code: int | None,
+    execution_time: float,
+    timeout_occurred: bool,
+) -> None:
+    """Log execution result details."""
+    logger.info(
+        "Execution result: type=%s success=%s exit_code=%s execution_time=%.3fs timeout=%s",
+        execution_type,
+        success,
+        exit_code,
+        execution_time,
+        timeout_occurred,
+    )

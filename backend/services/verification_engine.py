@@ -12,7 +12,7 @@ from typing import Any
 
 from services.execution_layer import ExecutionLayer, ExecutionResult
 from services.test_runner import TestRunner, TestSuiteResult
-from utils.logging import get_logger, log_pipeline_stage
+from utils.logging import get_logger, log_pipeline_stage, log_verification_stage
 
 logger = get_logger("neurodebug.verification_engine")
 
@@ -97,14 +97,18 @@ class VerificationEngine:
         orig_start = time.time()
         original_execution = self.execution_layer.execute_code(original_code)
         orig_duration = (time.time() - orig_start) * 1000
-        log_pipeline_stage(logger, "original_execution", orig_duration)
+        log_verification_stage(
+            logger, "original_execution", orig_duration, "success" if original_execution.success else "failed"
+        )
 
         # Step 2: Execute patched code
         logger.info("Step 2: Executing patched code")
         patch_start = time.time()
         patched_execution = self.execution_layer.execute_code(patched_code)
         patch_duration = (time.time() - patch_start) * 1000
-        log_pipeline_stage(logger, "patched_execution", patch_duration)
+        log_verification_stage(
+            logger, "patched_execution", patch_duration, "success" if patched_execution.success else "failed"
+        )
 
         # Step 3: Run tests if provided
         test_results = None
@@ -115,7 +119,11 @@ class VerificationEngine:
                 code=patched_code, test_code=test_code
             )
             test_duration = (time.time() - test_start) * 1000
-            log_pipeline_stage(logger, "test_execution", test_duration)
+            log_verification_stage(
+                logger, "test_execution", test_duration, "success" if test_results.failed == 0 else "failed",
+                tests_passed=test_results.passed,
+                tests_failed=test_results.failed,
+            )
 
         # Step 4: Compare executions
         execution_comparison = self._compare_executions(
