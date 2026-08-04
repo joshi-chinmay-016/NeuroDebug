@@ -53,15 +53,18 @@ class TestVerificationEngine:
 
     def test_verify_patch_with_timeout(self):
         """Test verification when patched code times out."""
-        engine = VerificationEngine(timeout=1.0)
+        from services.execution_layer import ExecutionLayer
+        custom_exec = ExecutionLayer(timeout=1.0)
+        engine = VerificationEngine(execution_layer=custom_exec)
         original_code = "print('test')"
         patched_code = "import time; time.sleep(10)"
 
         report = engine.verify_patch(original_code, patched_code)
 
         assert report.verification_status == VerificationStatus.UNVERIFIED
-        assert "timeout" in report.failure_reason.lower()
         assert report.evidence.patched_code_execution.timeout_occurred is True
+        # Timeout is classified as regression when original succeeded
+        assert report.evidence.execution_comparison["success_regressed"] is True
 
     def test_verify_patch_with_tests(self):
         """Test verification with provided test code."""
