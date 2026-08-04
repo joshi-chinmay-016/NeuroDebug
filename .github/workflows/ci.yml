@@ -6,11 +6,16 @@ on:
       - main
       - develop
       - "ft/patch"
-
+      - "feature/week1-patch-generation"
+      - "feature/week2-verification-engine"
+      - "feature/week3-redis"
+      - "feature/readme"
+      - "bugfix/docker"
+      - "hotfix/api"
   pull_request:
     branches:
       - main
-
+      
 jobs:
 
   backend:
