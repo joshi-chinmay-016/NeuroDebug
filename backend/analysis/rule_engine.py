@@ -5,11 +5,12 @@ Applies deterministic symbolic rules on top of the AST analysis output.
 Each rule returns a structured issue dict when triggered.
 """
 
-import logging
 import re
 from typing import Any
 
-logger = logging.getLogger("neurodebug.rules")
+from utils.logging import get_logger
+
+logger = get_logger("neurodebug.rule_engine")
 
 
 # ──────────────────────────────────────────────────────────────────

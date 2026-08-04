@@ -7,10 +7,9 @@ and returns a structured JSON response.
 import json
 import logging
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI, AuthenticationError, RateLimitError, APIConnectionError
+from openai import APIConnectionError, AsyncOpenAI, AuthenticationError, RateLimitError
 
 load_dotenv()
 
@@ -21,9 +20,9 @@ logger = logging.getLogger(__name__)
 # Environment Config
 # ──────────────────────────────────────────────
 
-GROQ_MODEL    = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
-GROQ_API_KEY  = os.getenv("GROQ_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # ──────────────────────────────────────────────
 # System Prompt
@@ -51,10 +50,11 @@ If you cannot determine an issue, still return valid JSON with best-effort value
 # Main Function
 # ──────────────────────────────────────────────
 
+
 async def get_llm_analysis(
     code: str,
     symbolic_issues: list[dict],
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> dict:
     """
     Send code and symbolic analysis findings to the Groq API.
@@ -93,7 +93,7 @@ async def get_llm_analysis(
             model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": user_prompt},
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
         )
@@ -113,14 +113,15 @@ async def get_llm_analysis(
         logger.error("API connection error: %s", exc)
         return _error_response("connection_error", str(exc))
 
-    except Exception as exc:
-        logger.exception("Unexpected Groq API failure: %s", exc)
+    except Exception:
+        logger.exception("Unexpected Groq API failure")
         return _fallback_response(symbolic_issues)
 
 
 # ──────────────────────────────────────────────
 # Helper Functions
 # ──────────────────────────────────────────────
+
 
 def _build_user_prompt(code: str, symbolic_issues: list[dict]) -> str:
     """
@@ -133,9 +134,10 @@ def _build_user_prompt(code: str, symbolic_issues: list[dict]) -> str:
     Returns:
         A formatted multi-line prompt string.
     """
-    findings_block = "\n".join(
-        f"  - [{i + 1}] {issue}" for i, issue in enumerate(symbolic_issues)
-    ) or "  (none reported)"
+    findings_block = (
+        "\n".join(f"  - [{i + 1}] {issue}" for i, issue in enumerate(symbolic_issues))
+        or "  (none reported)"
+    )
 
     return (
         f"## Code Under Analysis\n\n"
@@ -160,16 +162,16 @@ def _parse_llm_response(raw: str) -> dict:
     """
     cleaned = (
         raw.strip()
-           .removeprefix("```json")
-           .removeprefix("```")
-           .removesuffix("```")
-           .strip()
+        .removeprefix("```json")
+        .removeprefix("```")
+        .removesuffix("```")
+        .strip()
     )
 
     try:
         parsed = json.loads(cleaned)
         required = {"error_type", "explanation", "suggested_fix", "confidence_score"}
-        missing  = required - parsed.keys()
+        missing = required - parsed.keys()
         if missing:
             logger.warning("LLM response missing keys: %s", missing)
         return parsed
@@ -191,13 +193,13 @@ def _fallback_response(symbolic_issues: list[dict]) -> dict:
     """
     if not symbolic_issues:
         return {
-            "error_type":       "unknown",
-            "explanation":      "No symbolic issues were provided and no LLM key is available.",
-            "suggested_fix":    "Provide a valid Groq API key or add symbolic analysis findings.",
+            "error_type": "unknown",
+            "explanation": "No symbolic issues were provided and no LLM key is available.",
+            "suggested_fix": "Provide a valid Groq API key or add symbolic analysis findings.",
             "confidence_score": 0.0,
         }
 
-    first_issue   = symbolic_issues[0]
+    first_issue = symbolic_issues[0]
     issue_summary = (
         ", ".join(f"{k}: {v}" for k, v in first_issue.items())
         if isinstance(first_issue, dict)
@@ -205,12 +207,12 @@ def _fallback_response(symbolic_issues: list[dict]) -> dict:
     )
 
     return {
-        "error_type":    "symbolic_inference",
-        "explanation":   (
+        "error_type": "symbolic_inference",
+        "explanation": (
             f"Based on {len(symbolic_issues)} symbolic finding(s), "
             f"the most likely issue is: {issue_summary}."
         ),
-        "suggested_fix":    "Review the flagged symbolic findings and apply targeted refactoring.",
+        "suggested_fix": "Review the flagged symbolic findings and apply targeted refactoring.",
         "confidence_score": round(0.4 + min(len(symbolic_issues) * 0.05, 0.3), 2),
     }
 
@@ -227,8 +229,8 @@ def _error_response(error_type: str, detail: str) -> dict:
         A structured dict with zeroed confidence and error metadata.
     """
     return {
-        "error_type":       error_type,
-        "explanation":      detail,
-        "suggested_fix":    "Check your Groq API key, network connectivity, or rate limit quota.",
+        "error_type": error_type,
+        "explanation": detail,
+        "suggested_fix": "Check your Groq API key, network connectivity, or rate limit quota.",
         "confidence_score": 0.0,
     }
