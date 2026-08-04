@@ -12,6 +12,8 @@ A modern AI-powered code debugging platform that combines static AST analysis wi
 
 ### Core Functionality
 - **AI-Powered Debug Analysis**: Combines static AST parsing with Groq LLM explanations
+- **Execution Verification**: Verifies candidate patches through isolated subprocess execution
+- **Patch Classification**: Classifies patches as VERIFIED or UNVERIFIED with structured evidence
 - **Interactive Code Editor**: Monaco Editor with syntax highlighting and real-time validation
 - **Auto-Generated Tests**: Comprehensive pytest test cases from any Python code
 - **Persistent History**: Firebase integration for storing and retrieving debug sessions
@@ -40,6 +42,14 @@ Rule Engine (13 validation rules)
 Symbolic Layer (deterministic checks)
     ↓
 Neural Layer (Groq LLM explanations)
+    ↓
+Candidate Patch Generation
+    ↓
+Syntax Validation
+    ↓
+Execution Verification (NEW)
+    ↓
+Patch Classification (VERIFIED/UNVERIFIED)
     ↓
 Enhanced Results → Frontend
 ```
@@ -284,6 +294,54 @@ Generate pytest test cases for Python code.
 }
 ```
 
+### `POST /verify`
+
+Verify a candidate patch through execution and testing.
+
+```json
+// request
+{
+  "original_code": "x = undefined_var\nprint(x)",
+  "patched_code": "x = 'some value'\nprint(x)",
+  "test_code": "def test_x_defined():\n    assert x is not None"  // optional
+}
+
+// response
+{
+  "verification_status": "VERIFIED",
+  "execution_summary": "Verification Status: VERIFIED\nOriginal Code: FAILED\nPatched Code: SUCCESS\nOriginal execution time: 0.001s\nPatched execution time: 0.002s",
+  "runtime": 1.234,
+  "failure_reason": null,
+  "evidence": {
+    "original_code_execution": {
+      "success": false,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "NameError: name 'undefined_var' is not defined",
+      "execution_time": 0.001,
+      "timeout_occurred": false,
+      "traceback": null
+    },
+    "patched_code_execution": {
+      "success": true,
+      "exit_code": 0,
+      "stdout": "some value\n",
+      "stderr": "",
+      "execution_time": 0.002,
+      "timeout_occurred": false,
+      "traceback": null
+    },
+    "test_results": null,
+    "execution_comparison": {
+      "original_success": false,
+      "patched_success": true,
+      "success_improved": true,
+      "success_regressed": false
+    }
+  }
+}
+```
+
 ### `GET /health`
 
 ```json
@@ -377,11 +435,36 @@ docker exec -it neurodebug_backend bash   # shell into backend
 | Backend | FastAPI + Uvicorn |
 | Analysis | Python `ast` module |
 | AI | Groq Llama 3 |
+| Verification | Isolated subprocess execution + pytest |
 | Frontend | React 18 + Vite |
 | Editor | Monaco Editor |
 | Serving | nginx |
 | Containers | Docker + Docker Compose |
 | Deployment | AWS EC2 (Ubuntu 22.04) |
+
+---
+
+## Verification Flow
+
+The verification engine executes candidate patches to ensure they fix the detected issues:
+
+1. **Original Execution**: Run the original code to capture baseline behavior
+2. **Patched Execution**: Run the patched code to check if it fixes the issue
+3. **Test Execution** (optional): Run pytest tests if provided
+4. **Comparison**: Compare execution results to determine improvement
+5. **Classification**: Classify as VERIFIED or UNVERIFIED
+
+### Verification Classification
+
+- **VERIFIED**: Patch fixes the original issue without introducing regressions
+- **UNVERIFIED**: Patch fails, times out, or introduces new issues
+
+### Limitations
+
+- Current implementation uses subprocess isolation (not Docker sandboxing)
+- Execution timeout is capped at 60 seconds for safety
+- Without tests, verification relies on execution comparison only
+- Future versions will support Docker sandboxing for stronger isolation
 
 ---
 
