@@ -6,6 +6,7 @@ import { historyService } from '../firebase'
 import SaasFooter from './SaasFooter'
 import PatchView from './PatchView'
 import DiffView from './DiffView'
+import VerificationPanel from './VerificationPanel'
 import { runDebug, checkHealth } from '../services/debugService'
 
 // ── Sample snippets ───────────────────────────────────────────────
@@ -339,6 +340,9 @@ function Results({ data }) {
 
       {/* Patch View */}
       {data.candidate_patch && <PatchView patchData={data.candidate_patch} />}
+
+      {/* Verification Panel */}
+      {data.verification_report && <VerificationPanel verificationReport={data.verification_report} />}
 
       {/* Metadata */}
       {data.metadata && Object.keys(data.metadata).length > 0 && (
