@@ -315,6 +315,14 @@ def _find_undefined_names(tree: ast.Module, visitor: _ASTVisitor) -> list[str]:
             for n in ast.walk(target):
                 if isinstance(n, ast.Name):
                     defined.add(n.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            args = node.args
+            for arg in args.posonlyargs + args.args + args.kwonlyargs:
+                defined.add(arg.arg)
+            if args.vararg:
+                defined.add(args.vararg.arg)
+            if args.kwarg:
+                defined.add(args.kwarg.arg)
         elif isinstance(node, ast.withitem):
             if node.optional_vars and isinstance(node.optional_vars, ast.Name):
                 defined.add(node.optional_vars.id)
