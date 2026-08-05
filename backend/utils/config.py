@@ -24,6 +24,24 @@ class Config:
     MAX_CODE_LENGTH: int = 10000
     REQUEST_TIMEOUT: int = 30
 
+    # Database Configuration
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://neurodebug:neurodebug@localhost:5432/neurodebug",
+    )
+    DATABASE_ECHO: bool = os.getenv("DATABASE_ECHO", "false").lower() == "true"
+    DATABASE_POOL_SIZE: int = int(os.getenv("DATABASE_POOL_SIZE", "5"))
+    DATABASE_MAX_OVERFLOW: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))
+
+    # Session Configuration
+    SESSION_COOKIE_NAME: str = "neurodebug_session"
+    SESSION_EXPIRY_HOURS: int = int(os.getenv("SESSION_EXPIRY_HOURS", "24"))
+
+    # Usage Limits (configurable via database, these are defaults)
+    DEFAULT_GUEST_LIMIT: int = int(os.getenv("DEFAULT_GUEST_LIMIT", "3"))
+    DEFAULT_FREE_LIMIT: int = int(os.getenv("DEFAULT_FREE_LIMIT", "5"))
+    DEFAULT_PRO_LIMIT: int = int(os.getenv("DEFAULT_PRO_LIMIT", "20"))
+
     @classmethod
     def get_groq_api_key(cls, user_key: str | None = None) -> str | None:
         """Resolve Groq API key from user key or environment."""
