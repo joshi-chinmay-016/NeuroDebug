@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import SubscriptionPlan, SubscriptionLimit
+from database.models import SubscriptionLimit, SubscriptionPlan
 from repositories.base import BaseRepository
 
 

@@ -22,6 +22,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
+__all__ = [
+    "CandidatePatch",
+    "DebugSession",
+    "Project",
+    "SubscriptionLimit",
+    "SubscriptionPlan",
+    "SubscriptionTier",
+    "UsageLog",
+    "User",
+    "VerificationReport",
+    "VerificationStatus",
+]
+
 
 class SubscriptionTier(str, Enum):
     """Subscription tier enumeration."""
@@ -50,13 +63,19 @@ class SubscriptionPlan(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixi
 
     __tablename__ = "subscription_plans"
 
-    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(
+        String(50), unique=True, nullable=False, index=True
+    )
     tier: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     daily_request_limit: Mapped[int] = mapped_column(Integer, nullable=False)
     max_projects: Mapped[int | None] = mapped_column(Integer, nullable=True)
     features: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    price_monthly: Mapped[int | None] = mapped_column(Integer, nullable=True)  # in cents
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    price_monthly: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # in cents
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, index=True
+    )
 
     # Relationships
     limits: Mapped[list["SubscriptionLimit"]] = relationship(
@@ -83,7 +102,9 @@ class SubscriptionLimit(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
-    plan: Mapped["SubscriptionPlan"] = relationship("SubscriptionPlan", back_populates="limits")
+    plan: Mapped["SubscriptionPlan"] = relationship(
+        "SubscriptionPlan", back_populates="limits"
+    )
 
     __table_args__ = (UniqueConstraint("plan_id", "limit_type", name="uq_plan_limit"),)
 
@@ -98,7 +119,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
 
     __tablename__ = "users"
 
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     subscription_plan_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -107,7 +130,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         index=True,
     )
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Relationships
     subscription_plan: Mapped["SubscriptionPlan"] = relationship(
@@ -137,7 +162,9 @@ class Project(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         index=True,
     )
-    session_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    session_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -172,18 +199,24 @@ class DebugSession(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         index=True,
     )
     code: Mapped[str] = mapped_column(Text, nullable=False)
-    error_type: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    error_type: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
     confidence_score: Mapped[float | None] = mapped_column(Integer, nullable=True)
     pipeline_duration_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="usage_logs")
-    project: Mapped["Project"] = relationship("Project", back_populates="debug_sessions")
+    project: Mapped["Project"] = relationship(
+        "Project", back_populates="debug_sessions"
+    )
     candidate_patches: Mapped[list["CandidatePatch"]] = relationship(
         "CandidatePatch", back_populates="debug_session", cascade="all, delete-orphan"
     )
     verification_reports: Mapped[list["VerificationReport"]] = relationship(
-        "VerificationReport", back_populates="debug_session", cascade="all, delete-orphan"
+        "VerificationReport",
+        back_populates="debug_session",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (UniqueConstraint("session_id", "code", name="uq_session_code"),)
@@ -208,7 +241,9 @@ class CandidatePatch(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin)
     original_code: Mapped[str] = mapped_column(Text, nullable=False)
     patched_code: Mapped[str] = mapped_column(Text, nullable=False)
     diff: Mapped[str | None] = mapped_column(Text, nullable=True)
-    validation_passed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    validation_passed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     llm_model: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
@@ -217,7 +252,9 @@ class CandidatePatch(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin)
         "DebugSession", back_populates="candidate_patches"
     )
     verification_reports: Mapped[list["VerificationReport"]] = relationship(
-        "VerificationReport", back_populates="candidate_patch", cascade="all, delete-orphan"
+        "VerificationReport",
+        back_populates="candidate_patch",
+        cascade="all, delete-orphan",
     )
 
 
@@ -281,16 +318,22 @@ class UsageLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         DateTime(timezone=True), nullable=False, index=True
     )
     execution_time_ms: Mapped[float] = mapped_column(Integer, nullable=False)
-    verification_status: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    verification_status: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, index=True
+    )
     patch_success: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     pipeline_runtime_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
     llm_runtime_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
-    subscription_tier: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    subscription_tier: Mapped[str] = mapped_column(
+        String(20), nullable=False, index=True
+    )
     daily_usage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="usage_logs")
 
     __table_args__ = (
-        UniqueConstraint("session_id", "request_timestamp", name="uq_session_timestamp"),
+        UniqueConstraint(
+            "session_id", "request_timestamp", name="uq_session_timestamp"
+        ),
     )

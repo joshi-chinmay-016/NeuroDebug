@@ -3,10 +3,10 @@ Repository for usage log and analytics operations.
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import UsageLog
@@ -43,7 +43,7 @@ class UsageLogRepository(BaseRepository[UsageLog, Any, Any]):
             Daily usage count.
         """
         if date is None:
-            date = datetime.utcnow()
+            date = datetime.now(timezone.utc)
 
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
@@ -150,7 +150,7 @@ class UsageLogRepository(BaseRepository[UsageLog, Any, Any]):
         usage_log = UsageLog(
             session_id=session_id,
             user_id=user_id,
-            request_timestamp=datetime.utcnow(),
+            request_timestamp=datetime.now(timezone.utc),
             execution_time_ms=execution_time_ms,
             verification_status=verification_status,
             patch_success=patch_success,
@@ -181,7 +181,7 @@ class UsageLogRepository(BaseRepository[UsageLog, Any, Any]):
         Returns:
             Dictionary with analytics summary.
         """
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         query = select(UsageLog).where(UsageLog.request_timestamp >= start_date)
 

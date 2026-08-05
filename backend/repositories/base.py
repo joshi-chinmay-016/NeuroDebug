@@ -8,11 +8,10 @@ import uuid
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase
 
-from database.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+from database.base import Base, SoftDeleteMixin
 
 ModelType = TypeVar("ModelType", bound=Base)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
@@ -127,9 +126,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         update_data.update(kwargs)
 
         await self.session.execute(
-            update(self.model)
-            .where(self.model.id == id)
-            .values(**update_data)
+            update(self.model).where(self.model.id == id).values(**update_data)
         )
         await self.session.flush()
         await self.session.refresh(db_obj)

@@ -5,12 +5,11 @@ Creates initial subscription plans and limits.
 """
 
 import asyncio
-from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import AsyncSessionLocal
-from database.models import SubscriptionPlan, SubscriptionLimit
+from database.models import SubscriptionPlan
 from repositories.subscription_repository import SubscriptionRepository
 from utils.logging import get_logger
 

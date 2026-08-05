@@ -34,9 +34,7 @@ class UserRepository(BaseRepository[User, Any, Any]):
         Returns:
             User instance or None.
         """
-        result = await self.session.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def create_user(
@@ -77,14 +75,12 @@ class UserRepository(BaseRepository[User, Any, Any]):
         Returns:
             Updated User instance or None.
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
 
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user:
-            user.last_login_at = datetime.utcnow()
+            user.last_login_at = datetime.now(timezone.utc)
             await self.session.flush()
             await self.session.refresh(user)
         return user

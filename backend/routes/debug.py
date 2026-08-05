@@ -6,11 +6,8 @@ Includes session management and usage limiting.
 """
 
 import time
-import uuid
-from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db_session
 from models.errors import AnalysisError, NeuroDebugError
@@ -98,7 +95,7 @@ async def debug_code(request: Request, response: Response, debug_request: DebugR
 
             # Check usage limits
             try:
-                allowed, current_usage, limit = await session_service.check_rate_limit(
+                _allowed, current_usage, limit = await session_service.check_rate_limit(
                     session_id=session_id, tier=tier
                 )
                 logger.info(
@@ -172,13 +169,15 @@ async def debug_code(request: Request, response: Response, debug_request: DebugR
         except AnalysisError as exc:
             logger.error("Analysis error: %s", exc.message)
             raise HTTPException(
-                status_code=422, detail={"error": "analysis_error", "message": exc.message}
+                status_code=422,
+                detail={"error": "analysis_error", "message": exc.message},
             )
 
         except NeuroDebugError as exc:
             logger.error("NeuroDebug error: %s", exc.message)
             raise HTTPException(
-                status_code=500, detail={"error": "service_error", "message": exc.message}
+                status_code=500,
+                detail={"error": "service_error", "message": exc.message},
             )
 
         except Exception:

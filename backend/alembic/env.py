@@ -6,14 +6,14 @@ Handles database migration setup and configuration.
 
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
 # Import database configuration
 from database.base import Base
-from database.models import *  # noqa: F401, F403
+from database.models import *
 from utils.config import Config
 from utils.logging import get_logger
 

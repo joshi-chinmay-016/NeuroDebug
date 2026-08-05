@@ -5,8 +5,7 @@ Provides common mixins and base classes for SQLAlchemy models.
 """
 
 import uuid
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -15,8 +14,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
-
-    pass
 
 
 class TimestampMixin:
@@ -51,7 +48,7 @@ class SoftDeleteMixin:
 
     def soft_delete(self) -> None:
         """Mark the record as deleted."""
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(timezone.utc)
 
     def restore(self) -> None:
         """Restore a soft deleted record."""

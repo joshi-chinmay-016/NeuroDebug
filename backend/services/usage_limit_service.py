@@ -5,12 +5,11 @@ Provides configurable usage limiting for Guest, Free, Pro, and Enterprise tiers.
 """
 
 import uuid
-from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import SubscriptionPlan, SubscriptionTier
+from database.models import SubscriptionTier
 from repositories.subscription_repository import SubscriptionRepository
 from repositories.usage_log_repository import UsageLogRepository
 from utils.config import Config
@@ -26,7 +25,9 @@ class UsageLimitExceededError(Exception):
         self.limit = limit
         self.current_usage = current_usage
         self.tier = tier
-        message = f"Usage limit exceeded for {tier} tier: {current_usage}/{limit} requests"
+        message = (
+            f"Usage limit exceeded for {tier} tier: {current_usage}/{limit} requests"
+        )
         super().__init__(message)
 
 

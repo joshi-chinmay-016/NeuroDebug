@@ -6,13 +6,13 @@ Handles temporary session IDs for guests and user sessions for authenticated use
 
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import SubscriptionTier, User
+from database.models import SubscriptionTier
 from repositories.user_repository import UserRepository
 from services.usage_limit_service import UsageLimitService
 from utils.config import Config
@@ -92,7 +92,9 @@ class SessionService:
             max_age_hours: Optional cookie expiry in hours.
         """
         max_age = (max_age_hours or Config.SESSION_EXPIRY_HOURS) * 3600
-        expiry = datetime.utcnow() + timedelta(hours=max_age_hours or Config.SESSION_EXPIRY_HOURS)
+        expiry = datetime.now(timezone.utc) + timedelta(
+            hours=max_age_hours or Config.SESSION_EXPIRY_HOURS
+        )
 
         response.set_cookie(
             key=Config.SESSION_COOKIE_NAME,
@@ -104,7 +106,9 @@ class SessionService:
             samesite="lax",
         )
 
-        logger.debug("Session cookie set: session_id=%s max_age=%d", session_id, max_age)
+        logger.debug(
+            "Session cookie set: session_id=%s max_age=%d", session_id, max_age
+        )
 
     def clear_session_cookie(self, response: Response) -> None:
         """
@@ -156,7 +160,9 @@ class SessionService:
             self.set_session_cookie(response, session_id)
             logger.info("New session created: session_id=%s tier=%s", session_id, tier)
         else:
-            logger.debug("Existing session retrieved: session_id=%s tier=%s", session_id, tier)
+            logger.debug(
+                "Existing session retrieved: session_id=%s tier=%s", session_id, tier
+            )
 
         return session_id, tier
 
