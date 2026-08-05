@@ -2,14 +2,17 @@
 NeuroDebug Backend - Main Application Entry Point
 
 FastAPI server with clean architecture for neuro-symbolic code debugging.
+Includes PostgreSQL integration, session management, and usage limiting.
 """
 
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from database import close_db, init_db
 from routes import debug_router
 from utils.config import Config
 from utils.logging import configure_logging, get_logger
@@ -20,6 +23,30 @@ from utils.logging import configure_logging, get_logger
 configure_logging(Config.LOG_LEVEL)
 logger = get_logger("neurodebug.main")
 
+
+# ──────────────────────────────────────────────────────────────────
+# Lifecycle Management
+# ──────────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle events."""
+    # Startup
+    logger.info("Starting NeuroDebug backend...")
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as exc:
+        logger.error("Failed to initialize database: %s", exc)
+        raise
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down NeuroDebug backend...")
+    await close_db()
+    logger.info("Database connections closed")
+
+
 # ──────────────────────────────────────────────────────────────────
 # App Initialisation
 # ──────────────────────────────────────────────────────────────────
@@ -27,6 +54,7 @@ app = FastAPI(
     title=Config.APP_NAME,
     description="Neuro-Symbolic AI Code Debugger — combines AST analysis with LLM reasoning for candidate patch generation",
     version=Config.APP_VERSION,
+    lifespan=lifespan,
 )
 
 # CORS — allow the React dev server and any production origin
