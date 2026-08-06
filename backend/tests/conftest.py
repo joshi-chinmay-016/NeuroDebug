@@ -36,6 +36,7 @@ def debug_service(pipeline):
 async def setup_database():
     """Initialize database tables for integration tests."""
     from database import init_db
+
     await init_db()
     yield
     # Cleanup could be added here if needed
