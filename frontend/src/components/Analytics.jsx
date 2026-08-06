@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown, Activity, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -121,7 +122,7 @@ export default function Analytics() {
         >
           <h3 className="font-semibold mb-6">Daily Usage</h3>
           <div className="flex items-end gap-2 h-48">
-            {analyticsData.dailyUsage.map((day, index) => (
+            {analyticsData.dailyUsage.map((day) => (
               <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
                 <div className="w-full flex flex-col gap-1">
                   <div
@@ -164,7 +165,7 @@ export default function Analytics() {
         >
           <h3 className="font-semibold mb-6">Error Types Distribution</h3>
           <div className="space-y-4">
-            {analyticsData.errorTypes.map((error, index) => (
+            {analyticsData.errorTypes.map((error) => (
               <div key={error.type} className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">{error.type}</span>
@@ -190,7 +191,7 @@ export default function Analytics() {
         >
           <h3 className="font-semibold mb-6">Recent Performance</h3>
           <div className="space-y-3">
-            {analyticsData.recentPerformance.map((session, index) => (
+            {analyticsData.recentPerformance.map((session) => (
               <div
                 key={session.session}
                 className="flex items-center justify-between p-4 rounded-lg bg-muted/50"

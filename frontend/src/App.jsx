@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeContext'
-import Layout from './components/Layout'
 import LandingPage from './components/LandingPage'
 import Debugger from './components/Debugger'
 import Dashboard from './components/Dashboard'
@@ -9,6 +8,7 @@ import History from './components/History'
 import Analytics from './components/Analytics'
 import Pricing from './components/Pricing'
 import Settings from './components/Settings'
+import Layout from './components/Layout'
 import './index-modern.css'
 
 // Import Firebase test for development

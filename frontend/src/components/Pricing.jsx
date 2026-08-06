@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { Check, Zap, Shield, Users, Infinite, Clock, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -91,14 +92,6 @@ const plans = [
     popular: false,
   },
 ]
-
-const featureIcons = {
-  'Requests per day': Zap,
-  'Projects': Users,
-  'Processing': Clock,
-  'Support': Shield,
-  'API': Infinite,
-}
 
 export default function Pricing() {
   return (

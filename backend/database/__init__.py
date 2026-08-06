@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+# Import base class for models (must be at top level)
+from database.base import Base
 from utils.config import Config
 from utils.logging import get_logger
 
@@ -67,7 +69,7 @@ async def init_db() -> None:
         async with engine.begin() as conn:
             # Import models module to ensure all models are registered with Base
             # This import is needed for SQLAlchemy model registration
-            from database import models  # noqa: F401
+            from database import models
 
             # Create all tables
             await conn.run_sync(Base.metadata.create_all)
@@ -84,7 +86,3 @@ async def close_db() -> None:
         logger.info("Database connections closed")
     except Exception as exc:  # noqa: BLE001 - Broad exception handling for cleanup
         logger.error("Error closing database connections: %s", exc)
-
-
-# Import base class for models
-from database.base import Base

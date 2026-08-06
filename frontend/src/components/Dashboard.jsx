@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { Brain, Zap, Clock, TrendingUp, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'

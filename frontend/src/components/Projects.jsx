@@ -1,7 +1,7 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
 import { Plus, Folder, Trash2, Edit, Clock, MoreVertical } from 'lucide-react'
 import { useState } from 'react'
-import { cn } from '../lib/utils'
 
 const mockProjects = [
   {
@@ -31,7 +31,7 @@ const mockProjects = [
 ]
 
 export default function Projects() {
-  const [projects, setProjects] = useState(mockProjects)
+  const [projects] = useState(mockProjects)
   const [showNewProject, setShowNewProject] = useState(false)
 
   return (

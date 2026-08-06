@@ -8,6 +8,10 @@ import os
 
 from fastapi.testclient import TestClient
 
+# AST parser imports
+from analysis.ast_parser import analyze_code_ast
+from analysis.rule_engine import apply_rules
+
 os.environ.setdefault("GROQ_API_KEY", "test-key")
 
 from main import app
@@ -35,7 +39,6 @@ def test_empty_code_returns_422():
 # ──────────────────────────────────────────────────────────────────
 # AST parser tests
 # ──────────────────────────────────────────────────────────────────
-from analysis.ast_parser import analyze_code_ast
 
 
 def test_parse_clean_code():
@@ -85,7 +88,6 @@ def test_infinite_loop_with_break_is_ok():
 # ──────────────────────────────────────────────────────────────────
 # Rules engine tests
 # ──────────────────────────────────────────────────────────────────
-from analysis.rule_engine import apply_rules
 
 
 def test_rule_syntax_error():

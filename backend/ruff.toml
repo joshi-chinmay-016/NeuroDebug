@@ -1,0 +1,11 @@
+[lint]
+# Ignore specific linting rules
+extend-ignore = [
+    "F401",  # Unused imports (needed for SQLAlchemy model registration)
+    "F403",  # Wildcard imports (needed for Alembic migrations)
+    "E402",  # Module level imports (acceptable for conditional imports)
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"

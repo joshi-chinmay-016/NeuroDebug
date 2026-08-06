@@ -21,7 +21,7 @@ export default function PatchView({ patchData }) {
     );
   }
 
-  const { original_code, patched_code, unified_diff, validation_passed, validation_error } = patchData;
+  const { patched_code, unified_diff, validation_passed, validation_error } = patchData;
 
   return (
     <div className="result-block">

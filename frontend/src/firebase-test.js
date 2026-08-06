@@ -14,7 +14,7 @@ export async function testFirebaseConnection() {
   }
   
   const missingVars = Object.entries(envVars)
-    .filter(([key, value]) => !value)
+    .filter(([, value]) => !value)
     .map(([key]) => key)
   
   if (missingVars.length > 0) {
