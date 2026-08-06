@@ -10,6 +10,7 @@ from database import get_db_session
 from repositories.user_repository import UserRepository
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_base_repository_crud():
     """Test basic CRUD operations of base repository."""
@@ -50,6 +51,7 @@ async def test_base_repository_crud():
         assert all_users[0].is_deleted is True
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_base_repository_get_all():
     """Test get_all with pagination."""
@@ -70,6 +72,7 @@ async def test_base_repository_get_all():
         assert len(users) == 2
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_base_repository_count():
     """Test count functionality."""
@@ -99,6 +102,7 @@ async def test_base_repository_count():
         assert count == 3
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_soft_delete_mixin():
     """Test soft delete mixin functionality."""
@@ -130,6 +134,7 @@ async def test_soft_delete_mixin():
         assert user.deleted_at is None
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_timestamp_mixin():
     """Test timestamp mixin functionality."""
@@ -153,6 +158,7 @@ async def test_timestamp_mixin():
         assert user.updated_at > initial_updated
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_uuid_primary_key_mixin():
     """Test UUID primary key mixin functionality."""

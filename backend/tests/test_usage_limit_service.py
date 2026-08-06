@@ -12,6 +12,7 @@ from repositories.subscription_repository import SubscriptionRepository
 from services.usage_limit_service import UsageLimitExceededError, UsageLimitService
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_get_daily_limit():
     """Test getting daily limit for different tiers."""
@@ -34,6 +35,7 @@ async def test_get_daily_limit():
         assert enterprise_limit == 999999  # Unlimited
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_check_usage_limit():
     """Test usage limit checking."""
@@ -66,6 +68,7 @@ async def test_check_usage_limit():
         assert limit == 3
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_usage_limit_exceeded_error():
     """Test UsageLimitExceededError is raised."""
@@ -93,6 +96,7 @@ async def test_usage_limit_exceeded_error():
         assert error.tier == SubscriptionTier.FREE.value
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_record_usage():
     """Test usage recording."""
@@ -123,6 +127,7 @@ async def test_record_usage():
         assert logs[0].patch_success is True
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_get_remaining_requests():
     """Test getting remaining requests."""
@@ -151,6 +156,7 @@ async def test_get_remaining_requests():
         assert remaining == 3
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_get_usage_analytics():
     """Test usage analytics generation."""
@@ -193,6 +199,7 @@ async def test_get_usage_analytics():
         assert analytics["days_analyzed"] == 30
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_daily_usage_reset():
     """Test that daily usage resets correctly."""
@@ -219,6 +226,7 @@ async def test_daily_usage_reset():
         assert yesterday_usage == 0
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_user_specific_usage():
     """Test usage tracking for specific users."""

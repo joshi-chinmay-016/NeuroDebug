@@ -10,6 +10,7 @@ from repositories.subscription_repository import SubscriptionRepository
 from services.session_service import SessionService
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_generate_session_id():
     """Test session ID generation."""
@@ -23,6 +24,7 @@ async def test_generate_session_id():
         assert isinstance(session_id, str)
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_get_or_create_session_new():
     """Test creating a new session."""
@@ -53,6 +55,7 @@ async def test_get_or_create_session_new():
         assert "neurodebug_session" in response.cookies
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_get_or_create_session_existing():
     """Test getting an existing session."""
@@ -82,6 +85,7 @@ async def test_get_or_create_session_existing():
         assert tier == SubscriptionTier.GUEST.value
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_set_session_cookie():
     """Test setting session cookie."""
@@ -106,6 +110,7 @@ async def test_set_session_cookie():
         assert response.cookie_args["secure"] is False
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_clear_session_cookie():
     """Test clearing session cookie."""
@@ -127,6 +132,7 @@ async def test_clear_session_cookie():
         assert response.cookies["neurodebug_session"] is None
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_validate_session():
     """Test session validation."""
@@ -144,6 +150,7 @@ async def test_validate_session():
         assert tier == SubscriptionTier.GUEST.value
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_check_rate_limit():
     """Test rate limit checking."""
@@ -160,6 +167,7 @@ async def test_check_rate_limit():
         assert limit == 3
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_get_usage_info():
     """Test getting usage information."""
@@ -186,6 +194,7 @@ async def test_get_usage_info():
         assert usage_info["session_id"] == session_id
 
 
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_upgrade_session():
     """Test upgrading from guest to authenticated session."""
