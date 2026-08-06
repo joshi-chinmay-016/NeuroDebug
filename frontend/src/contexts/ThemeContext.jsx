@@ -8,6 +8,7 @@ const ThemeContext = createContext({
   setTheme: () => {},
 })
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => useContext(ThemeContext)
 
 export const ThemeProvider = ({ children }) => {
@@ -52,17 +53,17 @@ export const ThemeProvider = ({ children }) => {
     // Remove the transition temporarily to prevent flash
     const root = document.documentElement
     root.style.setProperty('--theme-transition', 'none')
-    
+
     // Apply the theme immediately
     applyTheme(theme)
-    
+
     // Re-enable transitions after a short delay
     const timer = setTimeout(() => {
       root.style.setProperty('--theme-transition', 'background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease')
     }, 100)
-    
+
     return () => clearTimeout(timer)
-  }, [])
+  }, [theme, applyTheme])
 
   const value = {
     theme,

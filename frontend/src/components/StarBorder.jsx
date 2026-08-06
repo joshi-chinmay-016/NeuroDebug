@@ -1,6 +1,7 @@
 import './StarBorder.css';
 
 const StarBorder = ({
+  // eslint-disable-next-line no-unused-vars
   as: Component = 'button',
   className = '',
   color = 'white',

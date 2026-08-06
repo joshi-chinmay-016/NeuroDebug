@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { useTheme } from '../contexts/ThemeContext'
 import ThemeToggle from './ThemeToggle'
-import { historyService } from '../firebase'
 import SaasFooter from './SaasFooter'
 import PatchView from './PatchView'
 import DiffView from './DiffView'
@@ -75,102 +74,6 @@ if __name__ == "__main__":
 
 const LS_KEY = 'neurodebug_groq_key'
 
-// History List Component
-function HistoryList() {
-  const [history, setHistory] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    loadHistory()
-  }, [])
-
-  const loadHistory = async () => {
-    try {
-      setLoading(true)
-      const result = await historyService.getHistory()
-      if (result.success) {
-        setHistory(result.data)
-      } else {
-        setError(result.error)
-        const localHistory = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-        setHistory(localHistory.map((item, index) => ({ ...item, id: index })))
-      }
-    } catch (err) {
-      setError(err.message)
-      const localHistory = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-      setHistory(localHistory.map((item, index) => ({ ...item, id: index })))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="history-loading">
-        <div className="spinner" />
-        <p>Loading history...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="history-error">
-        <p>Error loading history: {error}</p>
-        <button className="btn btn-ghost" onClick={loadHistory}>Retry</button>
-      </div>
-    )
-  }
-
-  if (history.length === 0) {
-    return (
-      <div className="history-empty">
-        <p>No downloaded reports yet.</p>
-        <p className="history-empty-hint">Download some reports first to see them here!</p>
-      </div>
-    )
-  }
-
-  return history.map((item, index) => (
-    <div key={item.id} className="history-item">
-      <div className="history-item-header">
-        <span className="history-item-number">Report #{index + 1}</span>
-        <span className="history-item-date">
-          {new Date(item.timestamp?.toDate?.() || item.timestamp).toLocaleString()}
-        </span>
-      </div>
-      <div className="history-item-content">
-        {item.result && (
-          <div className="history-detail">
-            <span className="history-label">Error:</span>
-            <span className="history-value">{item.result.error_type}</span>
-          </div>
-        )}
-        {item.testResult && (
-          <div className="history-detail">
-            <span className="history-label">Tests:</span>
-            <span className="history-value">
-              {item.testResult.test_cases?.length || 0} generated
-            </span>
-          </div>
-        )}
-        <div className="history-code-preview">
-          <pre>{item.code.substring(0, 150)}{item.code.length > 150 ? '...' : ''}</pre>
-        </div>
-      </div>
-    </div>
-  ))
-}
-
-// ── API call for test generation (legacy endpoint) ─────────────────
-async function runTestGeneration(code, apiKey) {
-  const body = { code }
-  if (apiKey && apiKey.trim()) body.api_key = apiKey.trim()
-  const res = await axios.post(`${API_BASE_URL}/generate-tests`, body, { timeout: 30000 })
-  return res.data
-}
-
 // ── Badge helpers ─────────────────────────────────────────────────
 function badgeClass(errorType) {
   if (!errorType || errorType === 'Clean') return 'badge-clean'
@@ -210,12 +113,20 @@ function ApiKeyBar({ apiKey, setApiKey }) {
   const handleChange = (e) => {
     const val = e.target.value
     setApiKey(val)
-    try { localStorage.setItem(LS_KEY, val) } catch (_) {}
+    try {
+      localStorage.setItem(LS_KEY, val)
+    } catch (error) {
+      console.error('Failed to save API key to localStorage:', error)
+    }
   }
 
   const handleClear = () => {
     setApiKey('')
-    try { localStorage.removeItem(LS_KEY) } catch (_) {}
+    try {
+      localStorage.removeItem(LS_KEY)
+    } catch (error) {
+      console.error('Failed to remove API key from localStorage:', error)
+    }
     inputRef.current?.focus()
   }
 
@@ -459,21 +370,31 @@ export default function Debugger() {
   const [code, setCode]             = useState(SAMPLES[0].code)
   const [result, setResult]         = useState(null)
   const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState(null)
-  const [apiStatus, setApiStatus]   = useState('checking')
-  const [testResult, setTestResult] = useState(null)
+  const [error, setError] = useState(null)
+  const [apiStatus, setApiStatus] = useState('checking')
+  // eslint-disable-next-line no-unused-vars
   const [testLoading, setTestLoading] = useState(false)
-  const [testError, setTestError]   = useState(null)
-  const [showHistory, setShowHistory] = useState(false)
+  // eslint-disable-next-line no-unused-vars
+  const [testError, setTestError] = useState(null)
+  // eslint-disable-next-line no-unused-vars
+  const [testResult, setTestResult] = useState(null)
 
   const [apiKey, setApiKey] = useState(() => {
-    try { return localStorage.getItem(LS_KEY) || '' } catch (_) { return '' }
+    try {
+      return localStorage.getItem(LS_KEY) || ''
+    } catch (error) {
+      console.error('Failed to load API key from localStorage:', error)
+      return ''
+    }
   })
 
   useEffect(() => {
     checkHealth()
       .then(() => setApiStatus('online'))
-      .catch(() => setApiStatus('offline'))
+      .catch((error) => {
+        console.error('Health check failed:', error)
+        setApiStatus('offline')
+      })
   }, [])
 
   const handleDebug = useCallback(async () => {
@@ -485,6 +406,7 @@ export default function Debugger() {
       const data = await runDebug(code, apiKey)
       setResult(data)
     } catch (err) {
+      console.error('Debug request failed:', err)
       setError(
         err.response?.data?.detail ||
         err.message ||
@@ -495,27 +417,8 @@ export default function Debugger() {
     }
   }, [code, apiKey, loading])
 
-  const handleGenerateTests = useCallback(async () => {
-    if (!code.trim() || testLoading) return
-    setTestLoading(true)
-    setTestError(null)
-    setTestResult(null)
-    try {
-      const data = await runTestGeneration(code, apiKey)
-      setTestResult(data)
-    } catch (err) {
-      setTestError(
-        err.response?.data?.detail ||
-        err.message ||
-        'Could not reach the backend.'
-      )
-    } finally {
-      setTestLoading(false)
-    }
-  }, [code, apiKey, testLoading])
-
   const handleDownloadReport = useCallback(async () => {
-    if (!result && !testResult) return
+    if (!result) return
 
     const reportContent = `# NeuroDebug Analysis Report
 Generated: ${new Date().toLocaleString()}
@@ -537,25 +440,6 @@ ${result.suggested_fix}
 ${result.symbolic_issues?.length > 0 ? `### Static Analysis Issues:
 ${result.symbolic_issues.map(issue => `- ${issue.message} (${issue.rule_id})`).join('\n')}` : ''}
 ` : 'No debug analysis available.'}
-
-## Test Generation
-${testResult ? `
-### Generated Test Cases:
-${testResult.test_cases?.map(test => `
-#### ${test.test_name}
-${test.description ? `${test.description}` : ''}
-\`\`\`python
-${test.test_code}
-\`\`\``).join('\n')}
-${testResult.imports ? `### Required Imports:
-\`\`\`python
-${testResult.imports}
-\`\`\`` : ''}
-${testResult.setup_code ? `### Setup Code:
-\`\`\`python
-${testResult.setup_code}
-\`\`\`` : ''}
-` : 'No test generation available.'}
 `
 
     const blob = new Blob([reportContent], { type: 'text/markdown' })
@@ -567,17 +451,7 @@ ${testResult.setup_code}
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-
-    try {
-      await historyService.saveHistoryEntry({ code, result, testResult })
-      console.log('History saved to Firebase successfully')
-    } catch (error) {
-      console.error('Failed to save to Firebase:', error)
-      const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-      history.push({ timestamp: new Date().toISOString(), code, result, testResult })
-      localStorage.setItem('neurodebug_history', JSON.stringify(history))
-    }
-  }, [code, result, testResult])
+  }, [code, result])
 
   const onKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -597,14 +471,6 @@ ${testResult.setup_code}
             <span className="logo-name">NeuroDebug</span>
           </a>
           <div className="header-right">
-            <button
-              id="history-btn"
-              className="btn btn-green"
-              onClick={() => setShowHistory(true)}
-              title="View downloaded reports history"
-            >
-              📚 History
-            </button>
             <ThemeToggle />
             <div className="api-status" title="Backend API">
               <span className={`status-dot ${apiStatus}`} />
@@ -666,11 +532,9 @@ ${testResult.setup_code}
                   )}
                 </button>
                 <button
-                  id="test-gen-btn"
-                  className="btn btn-secondary"
-                  onClick={handleGenerateTests}
-                  disabled={testLoading || !code.trim()}
-                  title="Generate pytest test cases for this code"
+                  id="generate-tests-btn"
+                  className="btn btn-primary"
+                  disabled={loading || !code.trim()}
                 >
                   {testLoading ? (
                     <>
@@ -687,7 +551,7 @@ ${testResult.setup_code}
                   id="download-btn"
                   className="btn btn-primary"
                   onClick={handleDownloadReport}
-                  disabled={!result && !testResult}
+                  disabled={!result}
                   title="Download analysis report"
                 >
                   📥 Download Report
@@ -700,8 +564,6 @@ ${testResult.setup_code}
                     setCode('')
                     setResult(null)
                     setError(null)
-                    setTestResult(null)
-                    setTestError(null)
                   }}
                 >
                   clear
@@ -793,59 +655,6 @@ ${testResult.setup_code}
           </div>
         </div>
       </main>
-
-      {/* ── History Modal ── */}
-      {showHistory && (
-        <div className="history-modal-overlay" onClick={() => setShowHistory(false)}>
-          <div className="history-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="history-modal-header">
-              <h3>📚 Download History</h3>
-              <button className="btn btn-ghost" onClick={() => setShowHistory(false)}>
-                ✕
-              </button>
-            </div>
-            <div className="history-modal-body">
-              <HistoryList />
-            </div>
-            <div className="history-modal-footer">
-              <button
-                className="btn btn-green"
-                onClick={() => {
-                  const history = JSON.parse(localStorage.getItem('neurodebug_history') || '[]')
-                  if (history.length === 0) return
-
-                  const historyContent = history.map((item, index) => `
-## Report ${index + 1} - ${new Date(item.timestamp).toLocaleString()}
-${item.result ? `Error: ${item.result.error_type}` : 'No debug result'}
-${item.testResult ? `Tests: ${item.testResult.test_cases?.length || 0} generated` : 'No test result'}
-\`\`\`python
-${item.code.substring(0, 200)}${item.code.length > 200 ? '...' : ''}
-\`\`\`
-`).join('\n---\n')
-
-                  const fullContent = `# NeuroDebug History
-Total Reports: ${history.length}
-
-${historyContent}
-`
-                  const blob = new Blob([fullContent], { type: 'text/markdown' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `neurodebug-history-${Date.now()}.md`
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  URL.revokeObjectURL(url)
-                }}
-                disabled={JSON.parse(localStorage.getItem('neurodebug_history') || '[]').length === 0}
-              >
-                📥 Download All History
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Footer ── */}
       <SaasFooter />

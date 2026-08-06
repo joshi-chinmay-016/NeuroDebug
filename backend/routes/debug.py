@@ -2,10 +2,14 @@
 API routes for debug endpoints.
 
 Contains route handlers that delegate business logic to services.
+Includes session management and usage limiting.
 """
 
-from fastapi import APIRouter, HTTPException, Request
+import time
 
+from fastapi import APIRouter, HTTPException, Request, Response
+
+from database import get_db_session
 from models.errors import AnalysisError, NeuroDebugError
 from models.requests import DebugRequest, VerificationRequest
 from models.responses import (
@@ -14,6 +18,8 @@ from models.responses import (
     VerificationReportResponse,
 )
 from services.debug_service import DebugService
+from services.session_service import SessionService
+from services.usage_limit_service import UsageLimitExceededError, UsageLimitService
 from services.verification_engine import VerificationEngine
 from utils.config import Config
 from utils.logging import get_logger, set_request_id
@@ -32,11 +38,13 @@ async def health_check():
 
 
 @router.post("/debug", response_model=DebugResponse)
-async def debug_code(request: Request, debug_request: DebugRequest):
+async def debug_code(request: Request, response: Response, debug_request: DebugRequest):
     """
-    Main debugging endpoint.
+    Main debugging endpoint with session management and usage limiting.
 
     Orchestrates the complete debug pipeline:
+    - Session Management (guest or authenticated)
+    - Usage Limiting
     - AST Analysis
     - Rule Engine
     - LLM Analysis (if API key provided)
@@ -44,9 +52,11 @@ async def debug_code(request: Request, debug_request: DebugRequest):
     - Patch Validation
     - Diff Generation
     - Verification (if patch generated)
+    - Usage Tracking
 
     Args:
         request: FastAPI request object.
+        response: FastAPI response object.
         debug_request: DebugRequest containing code and optional API key.
 
     Returns:
@@ -71,38 +81,114 @@ async def debug_code(request: Request, debug_request: DebugRequest):
 
     logger.info("Debug request received: code_length=%d", len(code))
 
-    try:
-        # Initialize debug service
-        debug_service = DebugService()
+    async with get_db_session() as session:
+        try:
+            # Initialize services
+            session_service = SessionService(session)
+            usage_limit_service = UsageLimitService(session)
+            debug_service = DebugService()
 
-        # Execute debug pipeline
-        result = await debug_service.debug_code(
-            code=code, api_key=debug_request.api_key
-        )
+            # Get or create session
+            session_id, tier = await session_service.get_or_create_session(
+                request, response
+            )
 
-        return result
+            # Check usage limits
+            try:
+                _allowed, current_usage, limit = await session_service.check_rate_limit(
+                    session_id=session_id, tier=tier
+                )
+                logger.info(
+                    "Usage check passed: session_id=%s tier=%s usage=%d/%d",
+                    session_id,
+                    tier,
+                    current_usage,
+                    limit,
+                )
+            except UsageLimitExceededError as exc:
+                logger.warning(
+                    "Usage limit exceeded: session_id=%s tier=%s usage=%d/%d",
+                    session_id,
+                    tier,
+                    exc.current_usage,
+                    exc.limit,
+                )
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "error": "usage_limit_exceeded",
+                        "message": f"Daily usage limit exceeded: {exc.current_usage}/{exc.limit} requests",
+                        "tier": exc.tier,
+                        "limit": exc.limit,
+                        "current_usage": exc.current_usage,
+                    },
+                )
 
-    except AnalysisError as exc:
-        logger.error("Analysis error: %s", exc.message)
-        raise HTTPException(
-            status_code=422, detail={"error": "analysis_error", "message": exc.message}
-        )
+            # Execute debug pipeline
+            start_time = time.time()
+            result = await debug_service.debug_code(
+                code=code, api_key=debug_request.api_key
+            )
+            execution_time_ms = (time.time() - start_time) * 1000
 
-    except NeuroDebugError as exc:
-        logger.error("NeuroDebug error: %s", exc.message)
-        raise HTTPException(
-            status_code=500, detail={"error": "service_error", "message": exc.message}
-        )
+            # Record usage
+            verification_status = None
+            if result.verification_report:
+                verification_status = result.verification_report.verification_status
 
-    except Exception:
-        logger.exception("Unexpected error in debug endpoint")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "internal_error",
-                "message": "An unexpected error occurred",
-            },
-        )
+            await usage_limit_service.record_usage(
+                session_id=session_id,
+                tier=tier,
+                execution_time_ms=execution_time_ms,
+                verification_status=verification_status,
+                patch_success=result.patch is not None,
+                pipeline_runtime_ms=result.metadata.get("pipeline_duration_ms"),
+                llm_runtime_ms=result.metadata.get("llm_duration_ms"),
+            )
+
+            # Add usage info to response
+            remaining = await usage_limit_service.get_remaining_requests(
+                session_id=session_id, tier=tier
+            )
+            result.usage_info = {
+                "remaining_requests": remaining,
+                "daily_limit": await usage_limit_service.get_daily_limit(tier),
+                "tier": tier,
+                "session_id": session_id,
+            }
+
+            logger.info(
+                "Debug request completed: session_id=%s tier=%s execution_time=%.2fms",
+                session_id,
+                tier,
+                execution_time_ms,
+            )
+
+            return result
+
+        except AnalysisError as exc:
+            logger.error("Analysis error: %s", exc.message)
+            raise HTTPException(
+                status_code=422,
+                detail={"error": "analysis_error", "message": exc.message},
+            )
+
+        except NeuroDebugError as exc:
+            logger.error("NeuroDebug error: %s", exc.message)
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "service_error", "message": exc.message},
+            )
+
+        except Exception:
+            logger.exception("Unexpected error in debug endpoint")
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "internal_error",
+                    "message": "An unexpected error occurred",
+                },
+            )
 
 
 @router.post("/verify", response_model=VerificationReportResponse)

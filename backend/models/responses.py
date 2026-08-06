@@ -162,6 +162,9 @@ class DebugResponse(BaseModel):
         None, description="Verification report if patch was verified"
     )
     metadata: dict = Field(default_factory=dict, description="Additional metadata")
+    usage_info: dict | None = Field(
+        None, description="Usage information (remaining requests, tier, etc.)"
+    )
 
     class Config:
         json_schema_extra: ClassVar[dict] = {

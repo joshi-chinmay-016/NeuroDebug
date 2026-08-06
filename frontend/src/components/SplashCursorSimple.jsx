@@ -1,5 +1,38 @@
 import { useEffect, useRef } from 'react';
 
+class Particle {
+  constructor(x, y, COLOR) {
+    this.x = x;
+    this.y = y;
+    this.size = Math.random() * 5 + 2;
+    this.speedX = (Math.random() - 0.5) * 3;
+    this.speedY = (Math.random() - 0.5) * 3;
+    this.life = 1.0;
+    this.decay = Math.random() * 0.01 + 0.005;
+    this.color = COLOR;
+  }
+
+  update() {
+    this.x += this.speedX;
+    this.y += this.speedY;
+    this.life -= this.decay;
+    this.speedX *= 0.98;
+    this.speedY *= 0.98;
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.life;
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 function SplashCursor({
   COLOR = '#00ff88'
 }) {
@@ -23,45 +56,12 @@ function SplashCursor({
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    class Particle {
-      constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 5 + 2;
-        this.speedX = (Math.random() - 0.5) * 3;
-        this.speedY = (Math.random() - 0.5) * 3;
-        this.life = 1.0;
-        this.decay = Math.random() * 0.01 + 0.005;
-        this.color = COLOR;
-      }
-
-      update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.life -= this.decay;
-        this.speedX *= 0.98;
-        this.speedY *= 0.98;
-      }
-
-      draw(ctx) {
-        ctx.save();
-        ctx.globalAlpha = this.life;
-        ctx.fillStyle = this.color;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
     const handleMouseMove = (e) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
-      
+
       // Add new particles at mouse position
       for (let i = 0; i < 3; i++) {
-        particles.current.push(new Particle(e.clientX, e.clientY));
+        particles.current.push(new Particle(e.clientX, e.clientY, COLOR));
       }
     };
 
