@@ -32,6 +32,15 @@ def debug_service(pipeline):
     return service
 
 
+@pytest.fixture(scope="session")
+async def setup_database():
+    """Initialize database tables for integration tests."""
+    from database import init_db
+    await init_db()
+    yield
+    # Cleanup could be added here if needed
+
+
 @pytest.fixture(autouse=True)
 def mock_database_init(request):
     """Mock database initialization to avoid connection errors in tests.
@@ -68,9 +77,13 @@ def database_available():
 
 
 def pytest_collection_modifyitems(config, items):
-    """Skip tests marked with requires_db if database is not available."""
+    """Skip tests marked with requires_db if database is not available.
+    Also add setup_database fixture to tests marked with requires_db."""
     database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        for item in items:
-            if "requires_db" in item.keywords:
+    for item in items:
+        if "requires_db" in item.keywords:
+            if not database_url:
                 item.add_marker(pytest.mark.skip(reason="DATABASE_URL not set"))
+            else:
+                # Add setup_database fixture to tests that require database
+                item.fixturenames.append("setup_database")
