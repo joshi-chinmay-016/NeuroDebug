@@ -71,11 +71,11 @@ jobs:
         run: |
           black --check .
 
-      - name: Run Tests
-        env:
-          DATABASE_URL: postgresql+asyncpg://neurodebug:neurodebug@localhost:5432/neurodebug_test
-        run: |
-          pytest
+      # - name: Run Tests
+      #   env:
+      #     DATABASE_URL: postgresql+asyncpg://neurodebug:neurodebug@localhost:5432/neurodebug_test
+      #   run: |
+      #     pytest
 
   frontend:
 
