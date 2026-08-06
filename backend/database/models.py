@@ -141,6 +141,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     projects: Mapped[list["Project"]] = relationship(
         "Project", back_populates="user", cascade="all, delete-orphan"
     )
+    debug_sessions: Mapped[list["DebugSession"]] = relationship(
+        "DebugSession", back_populates="user", cascade="all, delete-orphan"
+    )
     usage_logs: Mapped[list["UsageLog"]] = relationship(
         "UsageLog", back_populates="user", cascade="all, delete-orphan"
     )
@@ -206,7 +209,7 @@ class DebugSession(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     pipeline_duration_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="usage_logs")
+    user: Mapped["User"] = relationship("User", back_populates="debug_sessions")
     project: Mapped["Project"] = relationship(
         "Project", back_populates="debug_sessions"
     )

@@ -1,6 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
-import { Check, Zap, Shield, Users, Infinite, Clock, ArrowRight } from 'lucide-react'
+import { Check, Zap, Shield, Users, Clock, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '../lib/utils'
 
