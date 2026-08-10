@@ -12,7 +12,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
-    Integer,
+    Integer, Float,
     String,
     Text,
     UniqueConstraint,
@@ -205,8 +205,8 @@ class DebugSession(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     error_type: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True
     )
-    confidence_score: Mapped[float | None] = mapped_column(Integer, nullable=True)
-    pipeline_duration_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pipeline_duration_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="debug_sessions")
@@ -287,7 +287,7 @@ class VerificationReport(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMi
         String(20), nullable=False, index=True
     )
     execution_summary: Mapped[str] = mapped_column(Text, nullable=False)
-    runtime_seconds: Mapped[float] = mapped_column(Integer, nullable=False)
+    runtime_seconds: Mapped[float] = mapped_column(Float, nullable=False)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     evidence: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
@@ -320,13 +320,13 @@ class UsageLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     request_timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
-    execution_time_ms: Mapped[float] = mapped_column(Integer, nullable=False)
+    execution_time_ms: Mapped[float] = mapped_column(Float, nullable=False)
     verification_status: Mapped[str | None] = mapped_column(
         String(20), nullable=True, index=True
     )
     patch_success: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    pipeline_runtime_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
-    llm_runtime_ms: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    pipeline_runtime_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    llm_runtime_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     subscription_tier: Mapped[str] = mapped_column(
         String(20), nullable=False, index=True
     )

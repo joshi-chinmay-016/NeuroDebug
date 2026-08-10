@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - jules-2453977863031422642-2bffc80b
       - develop
       - "ft/patch"
       - "feature/week1-patch-generation"
@@ -15,6 +16,7 @@ on:
   pull_request:
     branches:
       - main
+      - jules-2453977863031422642-2bffc80b
 
 jobs:
 
