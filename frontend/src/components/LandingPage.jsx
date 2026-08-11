@@ -5,6 +5,8 @@ import SplashCursor from './SplashCursorNew'
 import SaasFooter from './SaasFooter'
 import StarBorder from './StarBorder'
 import TextType from './TextType'
+import './LandingPage.css'
+// import NeuralNetworkBackground from './NeuralNetworkBackground'
 
 export default function LandingPage() {
   const [showDeveloperCard, setShowDeveloperCard] = useState(true)
@@ -33,6 +35,7 @@ export default function LandingPage() {
 
   return (
     <div className="landing-page">
+      {/* <NeuralNetworkBackground /> */}
       <SplashCursor 
           DENSITY_DISSIPATION={2}
           VELOCITY_DISSIPATION={3}
@@ -61,12 +64,12 @@ export default function LandingPage() {
               onAnimationComplete={handleAnimationComplete}
             />
           </h1>
-          <p className="hero-subtitle">
+          <div className="hero-subtitle">
             <TextType 
               text="AI-Powered Code Debugging"
               speed={50}
             />
-          </p>
+          </div>
           <div className="hero-description">
             <p>
               Combine static AST analysis with dynamic LLM reasoning for 
@@ -77,8 +80,8 @@ export default function LandingPage() {
             <Link to="/debugger" className="btn btn-primary">
               Start Debugging
             </Link>
-            <Link to="/pricing" className="btn btn-secondary">
-              View Pricing
+            <Link to="/dashboard" className="btn btn-secondary">
+              View Dashboard
             </Link>
           </div>
         </div>

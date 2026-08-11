@@ -57,7 +57,17 @@ NeuroDebug introduces a neuro-symbolic approach that merges deterministic AST an
 | **Secure Verification Pipeline** | Timeout-protected execution with structured evidence collection |
 | **Structured Logging** | Request-scoped logging with pipeline stage timing and error tracking |
 | **Modern UI** | React 19 with responsive design, dark/light themes, and smooth animations |
-| **SaaS Foundation** | PostgreSQL persistence, session management, usage limiting, analytics |
+| **JWT Authentication** | Secure email/password authentication with access and refresh tokens |
+| **Session Management** | Secure cookie-based session persistence with configurable expiration |
+| **Workspace Management** | Projects CRUD operations with archiving and soft delete support |
+| **Debug History** | Full session persistence with search, filters, restore, compare, and export |
+| **Redis Caching** | Deterministic cache keys with TTL and graceful fallback for performance |
+| **Performance Metrics** | Per-stage timing (AST, rule, LLM, verification, database) for analytics |
+| **Analytics Dashboard** | Professional charts showing usage, success rates, and performance trends |
+| **Security Enhancements** | CSRF protection, input validation, session expiration, and rate limiting |
+| **Command Palette** | Keyboard shortcuts (Cmd+K) for quick navigation and actions |
+| **Skeleton Loading** | Beautiful loading states with animated skeletons for better UX |
+| **SaaS Foundation** | PostgreSQL persistence, subscription tiers, usage limiting, analytics |
 | **Anonymous Access** | Guest users can debug without account creation |
 | **Subscription Tiers** | Configurable Guest, Free, Pro, and Enterprise plans |
 
@@ -83,8 +93,14 @@ graph TD
     F --> M[Test Runner]
     F --> N[Diff Service]
     C --> O[PostgreSQL]
-    C --> P[Repository Layer]
-    C --> Q[Service Layer]
+    C --> P[Redis Cache]
+    C --> Q[Repository Layer]
+    C --> R[Service Layer]
+    C --> S[Auth Service]
+    C --> T[Workspace Service]
+    C --> U[History Service]
+    C --> V[Analytics Service]
+    C --> W[Performance Service]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
@@ -101,8 +117,14 @@ graph TD
     style M fill:#f3e5f5
     style N fill:#f3e5f5
     style O fill:#fce4ec
-    style P fill:#d1c4e9
-    style Q fill:#c8e6c9
+    style P fill:#ffeb3b
+    style Q fill:#d1c4e9
+    style R fill:#c8e6c9
+    style S fill:#b2dfdb
+    style T fill:#b2dfdb
+    style U fill:#b2dfdb
+    style V fill:#b2dfdb
+    style W fill:#b2dfdb
 ```
 
 ### Database Schema
@@ -130,16 +152,36 @@ erDiagram
     users {
         uuid id PK
         string email UK
+        string password_hash
+        boolean email_verified
+        string display_name
         uuid subscription_plan_id FK
         timestamp last_login_at
+    }
+
+    projects {
+        uuid id PK
+        uuid user_id FK
+        string name
+        text description
+        boolean is_archived
+        timestamp last_used_at
     }
 
     debug_sessions {
         uuid id PK
         uuid user_id FK
+        uuid project_id FK
         string session_id
         text code
         string error_type
+        jsonb ast_analysis
+        jsonB rule_violations
+        text llm_analysis
+        text candidate_patch
+        jsonb verification_report
+        float pipeline_duration_ms
+        float confidence_score
     }
 
     usage_logs {
@@ -187,6 +229,70 @@ sequenceDiagram
     Usage->>DB: Insert Usage Log
     API-->>Frontend: Response + Usage Info
     Frontend-->>User: Display Results
+```
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant AuthAPI
+    participant JWTService
+    participant DB
+    participant Redis
+
+    User->>Frontend: Register (email, password)
+    Frontend->>AuthAPI: POST /auth/register
+    AuthAPI->>DB: Check if email exists
+    DB-->>AuthAPI: Email not found
+    AuthAPI->>AuthAPI: Hash password (bcrypt)
+    AuthAPI->>DB: Create user with password_hash
+    DB-->>AuthAPI: User created
+    AuthAPI->>JWTService: Generate access token
+    JWTService-->>AuthAPI: Access token
+    AuthAPI->>JWTService: Generate refresh token
+    JWTService-->>AuthAPI: Refresh token
+    AuthAPI->>Redis: Store refresh token
+    AuthAPI-->>Frontend: Tokens + user data
+    Frontend->>Frontend: Store tokens in secure cookies
+    Frontend-->>User: Redirect to dashboard
+
+    Note over User,Redis: Login Flow
+
+    User->>Frontend: Login (email, password)
+    Frontend->>AuthAPI: POST /auth/login
+    AuthAPI->>DB: Find user by email
+    DB-->>AuthAPI: User data
+    AuthAPI->>AuthAPI: Verify password hash
+    AuthAPI->>JWTService: Generate access token
+    JWTService-->>AuthAPI: Access token
+    AuthAPI->>JWTService: Generate refresh token
+    JWTService-->>AuthAPI: Refresh token
+    AuthAPI->>DB: Update last_login_at
+    AuthAPI->>Redis: Store refresh token
+    AuthAPI-->>Frontend: Tokens + user data
+    Frontend->>Frontend: Store tokens in secure cookies
+    Frontend-->>User: Redirect to dashboard
+
+    Note over User,Redis: Token Refresh Flow
+
+    Frontend->>AuthAPI: POST /auth/refresh (refresh token)
+    AuthAPI->>Redis: Validate refresh token
+    Redis-->>AuthAPI: Token valid
+    AuthAPI->>JWTService: Generate new access token
+    JWTService-->>AuthAPI: New access token
+    AuthAPI-->>Frontend: New access token
+    Frontend->>Frontend: Update stored token
+
+    Note over User,Redis: Protected API Request
+
+    Frontend->>AuthAPI: GET /protected (access token)
+    AuthAPI->>JWTService: Validate access token
+    JWTService-->>AuthAPI: Token valid
+    AuthAPI->>DB: Fetch user data
+    DB-->>AuthAPI: User data
+    AuthAPI-->>Frontend: Protected data
 ```
 
 ---

@@ -21,13 +21,19 @@ from utils.logging import get_logger
 logger = get_logger("neurodebug.database")
 
 # Create async engine
-engine = create_async_engine(
-    Config.DATABASE_URL,
-    echo=Config.DATABASE_ECHO,
-    pool_pre_ping=True,
-    pool_size=Config.DATABASE_POOL_SIZE,
-    max_overflow=Config.DATABASE_MAX_OVERFLOW,
-)
+engine_kwargs = {
+    "echo": Config.DATABASE_ECHO,
+    "pool_pre_ping": True,
+}
+
+# Only add pool parameters for non-SQLite databases
+if not Config.DATABASE_URL.startswith("sqlite"):
+    engine_kwargs.update({
+        "pool_size": Config.DATABASE_POOL_SIZE,
+        "max_overflow": Config.DATABASE_MAX_OVERFLOW,
+    })
+
+engine = create_async_engine(Config.DATABASE_URL, **engine_kwargs)
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(

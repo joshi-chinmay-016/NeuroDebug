@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from services.debug_pipeline import DebugPipeline
 from services.debug_service import DebugService
@@ -40,6 +40,21 @@ async def setup_database():
     await init_db()
     yield
     # Cleanup could be added here if needed
+
+
+@pytest.fixture
+async def db_session(setup_database):
+    """Create a database session for tests."""
+    database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    engine = create_async_engine(database_url, echo=False)
+    async_session_maker = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    async with async_session_maker() as session:
+        yield session
+
+    await engine.dispose()
 
 
 @pytest.fixture(autouse=True)

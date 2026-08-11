@@ -42,6 +42,17 @@ class Config:
     DEFAULT_FREE_LIMIT: int = int(os.getenv("DEFAULT_FREE_LIMIT", "5"))
     DEFAULT_PRO_LIMIT: int = int(os.getenv("DEFAULT_PRO_LIMIT", "20"))
 
+    # Redis Configuration
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    CACHE_TTL_SECONDS: int = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
+    CACHE_ENABLED: bool = os.getenv("CACHE_ENABLED", "true").lower() == "true"
+
+    # JWT Configuration
+    JWT_SECRET: str = os.getenv(
+        "JWT_SECRET", "neurodebug-secret-key-change-in-production"
+    )
+    JWT_ALGORITHM: str = "HS256"
+
     @classmethod
     def get_groq_api_key(cls, user_key: str | None = None) -> str | None:
         """Resolve Groq API key from user key or environment."""

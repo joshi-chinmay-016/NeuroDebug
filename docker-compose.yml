@@ -30,6 +30,28 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ── Redis Cache ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: neurodebug_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neurodebug_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   # ── Backend: FastAPI ─────────────────────────────────────────────
   backend:
     build:
@@ -41,10 +63,13 @@ services:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://neurodebug:neurodebug@postgres:5432/neurodebug
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -83,6 +108,8 @@ services:
 # ── Volumes ───────────────────────────────────────────────────────
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
 
 # ── Shared network ────────────────────────────────────────────────

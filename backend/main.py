@@ -13,7 +13,16 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import close_db, init_db
-from routes import debug_router
+from middleware.security import security_middleware
+from routes import (
+    analytics_router,
+    auth_router,
+    debug_router,
+    history_router,
+    profile_router,
+    workspace_router,
+)
+from services.cache_service import cache_service
 from utils.config import Config
 from utils.logging import configure_logging, get_logger
 
@@ -29,22 +38,17 @@ logger = get_logger("neurodebug.main")
 # ──────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle events."""
+    """Manage application lifespan."""
     # Startup
-    logger.info("Starting NeuroDebug backend...")
-    try:
-        await init_db()
-        logger.info("Database initialized successfully")
-    except Exception as exc:
-        logger.error("Failed to initialize database: %s", exc)
-        raise
-
+    logger.info("Starting NeuroDebug API...")
+    await init_db()
+    await cache_service.initialize()
     yield
-
     # Shutdown
-    logger.info("Shutting down NeuroDebug backend...")
+    logger.info("Shutting down NeuroDebug API...")
     await close_db()
-    logger.info("Database connections closed")
+    await cache_service.close()
+    logger.info("Database and cache connections closed")
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -66,8 +70,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security middleware
+app.middleware("http")(security_middleware)
+
 # Include routes
 app.include_router(debug_router, tags=["debug"])
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(workspace_router, prefix="/workspace", tags=["workspace"])
+app.include_router(history_router, prefix="/history", tags=["history"])
+app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+app.include_router(profile_router, prefix="/profile", tags=["profile"])
 
 
 # ──────────────────────────────────────────────────────────────────

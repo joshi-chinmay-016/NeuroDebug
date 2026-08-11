@@ -113,3 +113,85 @@ class DebugSessionRepository(BaseRepository[DebugSession, Any, Any]):
         await self.session.flush()
         await self.session.refresh(debug_session)
         return debug_session
+
+    async def get_user_debug_sessions(
+        self,
+        user_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 50,
+        project_id: uuid.UUID | None = None,
+    ) -> list[DebugSession]:
+        """
+        Get debug sessions for a user with pagination and optional project filter.
+
+        Args:
+            user_id: UUID of the user.
+            skip: Number of sessions to skip.
+            limit: Maximum number of sessions to return.
+            project_id: Optional project UUID to filter by.
+
+        Returns:
+            List of DebugSession instances.
+        """
+        query = select(DebugSession).where(DebugSession.user_id == user_id)
+
+        if project_id:
+            query = query.where(DebugSession.project_id == project_id)
+
+        query = query.order_by(DebugSession.created_at.desc()).offset(skip).limit(limit)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def count_user_debug_sessions(
+        self,
+        user_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
+    ) -> int:
+        """
+        Count debug sessions for a user.
+
+        Args:
+            user_id: UUID of the user.
+            project_id: Optional project UUID to filter by.
+
+        Returns:
+            Count of debug sessions.
+        """
+        from sqlalchemy import func
+
+        query = (
+            select(func.count())
+            .select_from(DebugSession)
+            .where(DebugSession.user_id == user_id)
+        )
+
+        if project_id:
+            query = query.where(DebugSession.project_id == project_id)
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+
+    async def get_session_with_details(
+        self,
+        session_id: uuid.UUID,
+    ) -> DebugSession | None:
+        """
+        Get a debug session with all related data (patches, verification reports).
+
+        Args:
+            session_id: UUID of the debug session.
+
+        Returns:
+            DebugSession instance with loaded relationships or None.
+        """
+        from sqlalchemy.orm import selectinload
+
+        result = await self.session.execute(
+            select(DebugSession)
+            .where(DebugSession.id == session_id)
+            .options(
+                selectinload(DebugSession.candidate_patches),
+                selectinload(DebugSession.verification_reports),
+            )
+        )
+        return result.scalar_one_or_none()

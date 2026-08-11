@@ -40,6 +40,7 @@ class UserRepository(BaseRepository[User, Any, Any]):
     async def create_user(
         self,
         email: str,
+        password_hash: str | None = None,
         display_name: str | None = None,
         subscription_plan_id: uuid.UUID | None = None,
     ) -> User:
@@ -48,6 +49,7 @@ class UserRepository(BaseRepository[User, Any, Any]):
 
         Args:
             email: User email address.
+            password_hash: Optional hashed password.
             display_name: Optional display name.
             subscription_plan_id: Optional subscription plan ID.
 
@@ -56,6 +58,7 @@ class UserRepository(BaseRepository[User, Any, Any]):
         """
         user = User(
             email=email,
+            password_hash=password_hash,
             display_name=display_name,
             subscription_plan_id=subscription_plan_id,
             email_verified=False,
@@ -63,6 +66,27 @@ class UserRepository(BaseRepository[User, Any, Any]):
         self.session.add(user)
         await self.session.flush()
         await self.session.refresh(user)
+        return user
+
+    async def update_password(
+        self, user_id: uuid.UUID, password_hash: str
+    ) -> User | None:
+        """
+        Update user's password.
+
+        Args:
+            user_id: UUID of the user.
+            password_hash: New hashed password.
+
+        Returns:
+            Updated User instance or None.
+        """
+        result = await self.session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            user.password_hash = password_hash
+            await self.session.flush()
+            await self.session.refresh(user)
         return user
 
     async def update_last_login(self, user_id: uuid.UUID) -> User | None:

@@ -87,3 +87,140 @@ class ProjectRepository(BaseRepository[Project, Any, Any]):
         await self.session.flush()
         await self.session.refresh(project)
         return project
+
+    async def get_user_projects(
+        self,
+        user_id: uuid.UUID,
+        skip: int = 0,
+        limit: int = 50,
+        include_archived: bool = False,
+    ) -> list[Project]:
+        """
+        Get projects for a user with pagination.
+
+        Args:
+            user_id: UUID of the user.
+            skip: Number of projects to skip.
+            limit: Maximum number of projects to return.
+            include_archived: Whether to include archived projects.
+
+        Returns:
+            List of Project instances.
+        """
+        query = select(Project).where(Project.user_id == user_id)
+
+        if not include_archived:
+            query = query.where(Project.deleted_at.is_(None))
+
+        query = query.order_by(Project.created_at.desc()).offset(skip).limit(limit)
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def count_user_projects(
+        self,
+        user_id: uuid.UUID,
+        include_archived: bool = False,
+    ) -> int:
+        """
+        Count projects for a user.
+
+        Args:
+            user_id: UUID of the user.
+            include_archived: Whether to include archived projects.
+
+        Returns:
+            Count of projects.
+        """
+        from sqlalchemy import func
+
+        query = (
+            select(func.count()).select_from(Project).where(Project.user_id == user_id)
+        )
+
+        if not include_archived:
+            query = query.where(Project.deleted_at.is_(None))
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
+
+    async def update_project(
+        self,
+        project_id: uuid.UUID,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> Project:
+        """
+        Update a project.
+
+        Args:
+            project_id: UUID of the project.
+            name: Optional new name.
+            description: Optional new description.
+
+        Returns:
+            Updated Project instance.
+        """
+        result = await self.session.execute(
+            select(Project).where(Project.id == project_id)
+        )
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise ValueError("Project not found")
+
+        if name is not None:
+            project.name = name
+        if description is not None:
+            project.description = description
+
+        await self.session.flush()
+        await self.session.refresh(project)
+        return project
+
+    async def archive_project(self, project_id: uuid.UUID) -> Project:
+        """
+        Soft delete (archive) a project.
+
+        Args:
+            project_id: UUID of the project.
+
+        Returns:
+            Archived Project instance.
+        """
+        from datetime import datetime, timezone
+
+        result = await self.session.execute(
+            select(Project).where(Project.id == project_id)
+        )
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise ValueError("Project not found")
+
+        project.deleted_at = datetime.now(timezone.utc)
+        await self.session.flush()
+        await self.session.refresh(project)
+        return project
+
+    async def restore_project(self, project_id: uuid.UUID) -> Project:
+        """
+        Restore a previously archived project.
+
+        Args:
+            project_id: UUID of the project.
+
+        Returns:
+            Restored Project instance.
+        """
+        result = await self.session.execute(
+            select(Project).where(Project.id == project_id)
+        )
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise ValueError("Project not found")
+
+        project.deleted_at = None
+        await self.session.flush()
+        await self.session.refresh(project)
+        return project

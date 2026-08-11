@@ -16,11 +16,16 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    JSON,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from utils.config import Config
 
 from database.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+
+# Use JSON for SQLite, JSONB for PostgreSQL
+JsonType = JSONB if Config.DATABASE_URL.startswith("postgresql") else JSON
 
 __all__ = [
     "CandidatePatch",
@@ -31,6 +36,7 @@ __all__ = [
     "SubscriptionTier",
     "UsageLog",
     "User",
+    "UserProfile",
     "VerificationReport",
     "VerificationStatus",
 ]
@@ -69,7 +75,7 @@ class SubscriptionPlan(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixi
     tier: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     daily_request_limit: Mapped[int] = mapped_column(Integer, nullable=False)
     max_projects: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    features: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    features: Mapped[dict] = mapped_column(JsonType, nullable=False, default=dict)
     price_monthly: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )  # in cents
@@ -124,6 +130,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     )
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("subscription_plans.id", ondelete="SET NULL"),
@@ -138,6 +145,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     subscription_plan: Mapped["SubscriptionPlan"] = relationship(
         "SubscriptionPlan", back_populates="users"
     )
+    profile: Mapped["UserProfile"] = relationship(
+        "UserProfile", back_populates="user", cascade="all, delete-orphan"
+    )
     projects: Mapped[list["Project"]] = relationship(
         "Project", back_populates="user", cascade="all, delete-orphan"
     )
@@ -147,6 +157,39 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     usage_logs: Mapped[list["UsageLog"]] = relationship(
         "UsageLog", back_populates="user", cascade="all, delete-orphan"
     )
+
+
+class UserProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
+    """User profile model for settings and preferences."""
+
+    __tablename__ = "user_profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    theme: Mapped[str] = mapped_column(String(20), nullable=False, default="light")
+    language: Mapped[str] = mapped_column(String(10), nullable=False, default="en")
+    timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="UTC")
+    editor_font_size: Mapped[int] = mapped_column(Integer, nullable=False, default=14)
+    editor_theme: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="vs-dark"
+    )
+    notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    email_notifications: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    api_keys: Mapped[dict] = mapped_column(JsonType, nullable=False, default=dict)
+    preferences: Mapped[dict] = mapped_column(JsonType, nullable=False, default=dict)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="profile")
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -289,7 +332,7 @@ class VerificationReport(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMi
     execution_summary: Mapped[str] = mapped_column(Text, nullable=False)
     runtime_seconds: Mapped[float] = mapped_column(Integer, nullable=False)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    evidence: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    evidence: Mapped[dict] = mapped_column(JsonType, nullable=False, default=dict)
 
     # Relationships
     debug_session: Mapped["DebugSession"] = relationship(

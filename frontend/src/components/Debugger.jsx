@@ -488,7 +488,7 @@ ${result.symbolic_issues.map(issue => `- ${issue.message} (${issue.rule_id})`).j
           <p>
             Paste code below and hit <strong>Run analysis</strong>.
             Uses static AST rules and Groq to explain what's wrong.{' '}
-            <a href="https://neurodebug-backend.onrender.com/docs" target="_blank" rel="noreferrer">API docs →</a>
+            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer">API docs →</a>
           </p>
         </div>
 

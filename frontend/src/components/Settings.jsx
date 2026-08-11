@@ -1,30 +1,90 @@
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion'
-import { User, Bell, Shield, Palette, Key, Globe, Save } from 'lucide-react'
-import { useState } from 'react'
+import { User, Bell, Shield, Palette, Key, Save, Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { useNotification } from '../contexts/NotificationContext'
+import profileService from '../services/profileService'
+import apiClient from '../services/api'
 import { cn } from '../lib/utils'
 
 export default function Settings() {
+  const { isAuthenticated, user, getAccessToken, logout } = useAuth()
+  const { success, error: showError } = useNotification()
   const [activeTab, setActiveTab] = useState('profile')
-  const [settings, setSettings] = useState({
-    profile: {
-      name: 'Developer',
-      email: 'dev@example.com',
-      bio: 'Building amazing software',
-    },
-    notifications: {
-      email: true,
-      push: false,
-      weekly: true,
-    },
-    appearance: {
-      theme: 'dark',
-      fontSize: 'medium',
-    },
-    api: {
-      key: 'gsk_••••••••••••••••',
-    },
+  const [isLoading, setIsLoading] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  
+  const [profile, setProfile] = useState({
+    display_name: '',
+    email: '',
   })
+  
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+  })
+
+  // Add auth token to API requests
+  useEffect(() => {
+    const token = getAccessToken()
+    if (token) {
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    }
+  }, [isAuthenticated, getAccessToken])
+
+  // Load profile data
+  const loadProfile = async () => {
+    if (!isAuthenticated) return
+
+    setIsLoading(true)
+    try {
+      const data = await profileService.getProfile()
+      setProfile({
+        display_name: data.display_name || '',
+        email: data.email || '',
+      })
+    } catch (err) {
+      showError('Failed to load profile')
+      console.error('Failed to load profile:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadProfile()
+  }, [isAuthenticated])
+
+  const handleProfileUpdate = async () => {
+    setIsLoading(true)
+    try {
+      await profileService.updateProfile({
+        display_name: profile.display_name,
+        email: profile.email,
+      })
+      success('Profile updated successfully')
+    } catch (err) {
+      showError('Failed to update profile')
+      console.error('Failed to update profile:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePasswordChange = async () => {
+    setIsLoading(true)
+    try {
+      await profileService.changePassword(passwordForm)
+      success('Password changed successfully')
+      setPasswordForm({ current_password: '', new_password: '' })
+    } catch (err) {
+      showError('Failed to change password. Please check your current password.')
+      console.error('Failed to change password:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -33,6 +93,16 @@ export default function Settings() {
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'api', label: 'API Keys', icon: Key },
   ]
+
+  if (!isAuthenticated) {
+    return (
+      <div className="container py-8">
+        <div className="text-center py-16">
+          <p className="text-muted-foreground">Please sign in to access settings</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container py-8">
@@ -62,7 +132,7 @@ export default function Settings() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200",
                   activeTab === tab.id
                     ? "bg-primary text-primary-foreground"
                     : "hover:bg-accent text-muted-foreground"
@@ -84,44 +154,47 @@ export default function Settings() {
         >
           {activeTab === 'profile' && (
             <div className="rounded-xl border border-border/40 bg-card p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-6">Profile Settings</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Profile Settings</h2>
+                <button
+                  onClick={loadProfile}
+                  className="p-2 rounded-lg hover:bg-accent transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
               <div className="space-y-6">
                 <div>
                   <label className="text-sm font-medium mb-2 block">Display Name</label>
                   <input
                     type="text"
-                    value={settings.profile.name}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      profile: { ...settings.profile, name: e.target.value }
-                    })}
+                    value={profile.display_name}
+                    onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-border/40 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="Your display name"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">Email</label>
                   <input
                     type="email"
-                    value={settings.profile.email}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      profile: { ...settings.profile, email: e.target.value }
-                    })}
+                    value={profile.email}
+                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-border/40 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="your@email.com"
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Bio</label>
-                  <textarea
-                    value={settings.profile.bio}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      profile: { ...settings.profile, bio: e.target.value }
-                    })}
-                    rows={4}
-                    className="w-full px-4 py-2 rounded-lg border border-border/40 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                  />
-                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={handleProfileUpdate}
+                  disabled={isLoading}
+                  className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-primary to-accent text-white hover:shadow-lg hover:shadow-primary/25 h-10 px-6 disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
             </div>
           )}
@@ -130,38 +203,7 @@ export default function Settings() {
             <div className="rounded-xl border border-border/40 bg-card p-6 shadow-sm">
               <h2 className="text-xl font-semibold mb-6">Notification Preferences</h2>
               <div className="space-y-4">
-                {[
-                  { id: 'email', label: 'Email notifications', description: 'Receive updates via email' },
-                  { id: 'push', label: 'Push notifications', description: 'Receive browser push notifications' },
-                  { id: 'weekly', label: 'Weekly digest', description: 'Get a weekly summary of activity' },
-                ].map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-sm">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.description}</p>
-                    </div>
-                    <button
-                      onClick={() => setSettings({
-                        ...settings,
-                        notifications: {
-                          ...settings.notifications,
-                          [item.id]: !settings.notifications[item.id]
-                        }
-                      })}
-                      className={cn(
-                        "w-12 h-6 rounded-full transition-colors relative",
-                        settings.notifications[item.id] ? "bg-primary" : "bg-muted"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "w-5 h-5 rounded-full bg-white shadow transition-transform",
-                          settings.notifications[item.id] ? "translate-x-6" : "translate-x-1"
-                        )}
-                      />
-                    </button>
-                  </div>
-                ))}
+                <p className="text-sm text-muted-foreground">Notification settings coming soon</p>
               </div>
             </div>
           )}
@@ -170,43 +212,7 @@ export default function Settings() {
             <div className="rounded-xl border border-border/40 bg-card p-6 shadow-sm">
               <h2 className="text-xl font-semibold mb-6">Appearance</h2>
               <div className="space-y-6">
-                <div>
-                  <label className="text-sm font-medium mb-3 block">Theme</label>
-                  <div className="grid grid-cols-3 gap-4">
-                    {['light', 'dark', 'system'].map((theme) => (
-                      <button
-                        key={theme}
-                        onClick={() => setSettings({
-                          ...settings,
-                          appearance: { ...settings.appearance, theme }
-                        })}
-                        className={cn(
-                          "p-4 rounded-lg border text-sm font-medium transition-colors",
-                          settings.appearance.theme === theme
-                            ? "border-primary bg-primary/10"
-                            : "border-border/40 hover:border-border"
-                        )}
-                      >
-                        {theme.charAt(0).toUpperCase() + theme.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-3 block">Font Size</label>
-                  <select
-                    value={settings.appearance.fontSize}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      appearance: { ...settings.appearance, fontSize: e.target.value }
-                    })}
-                    className="w-full px-4 py-2 rounded-lg border border-border/40 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
-                </div>
+                <p className="text-sm text-muted-foreground">Appearance settings coming soon</p>
               </div>
             </div>
           )}
@@ -214,24 +220,56 @@ export default function Settings() {
           {activeTab === 'security' && (
             <div className="rounded-xl border border-border/40 bg-card p-6 shadow-sm">
               <h2 className="text-xl font-semibold mb-6">Security</h2>
-              <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-sm">Two-Factor Authentication</p>
-                    <span className="text-xs text-green-500 font-medium">Enabled</span>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium text-sm mb-4">Change Password</h3>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <label className="text-sm font-medium mb-2 block">Current Password</label>
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={passwordForm.current_password}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                        className="w-full px-4 py-2 pr-10 rounded-lg border border-border/40 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="Enter current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-8 text-muted-foreground hover:text-foreground"
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <label className="text-sm font-medium mb-2 block">New Password</label>
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={passwordForm.new_password}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                        className="w-full px-4 py-2 pr-10 rounded-lg border border-border/40 bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="Enter new password (min 8 characters)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-8 text-muted-foreground hover:text-foreground"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Your account is protected with 2FA
-                  </p>
                 </div>
-                <button className="w-full p-4 rounded-lg border border-border/40 hover:border-primary transition-colors text-left">
-                  <p className="font-medium text-sm mb-1">Change Password</p>
-                  <p className="text-xs text-muted-foreground">Update your password</p>
-                </button>
-                <button className="w-full p-4 rounded-lg border border-border/40 hover:border-primary transition-colors text-left">
-                  <p className="font-medium text-sm mb-1">Active Sessions</p>
-                  <p className="text-xs text-muted-foreground">Manage your active sessions</p>
-                </button>
+                <div className="flex justify-end">
+                  <button
+                    onClick={handlePasswordChange}
+                    disabled={isLoading || !passwordForm.current_password || !passwordForm.new_password}
+                    className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-primary to-accent text-white hover:shadow-lg hover:shadow-primary/25 h-10 px-6 disabled:opacity-50"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isLoading ? 'Changing...' : 'Change Password'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -240,38 +278,10 @@ export default function Settings() {
             <div className="rounded-xl border border-border/40 bg-card p-6 shadow-sm">
               <h2 className="text-xl font-semibold mb-6">API Keys</h2>
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-sm">Groq API Key</p>
-                    <span className="text-xs text-green-500 font-medium">Active</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="password"
-                      value={settings.api.key}
-                      readOnly
-                      className="flex-1 px-3 py-2 rounded bg-background text-sm font-mono text-muted-foreground"
-                    />
-                    <button className="p-2 rounded hover:bg-accent transition-colors">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  </div>
-                </div>
-                <button className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors border border-border/40 bg-background hover:bg-accent h-10">
-                  <Key className="h-4 w-4 mr-2" />
-                  Generate New Key
-                </button>
+                <p className="text-sm text-muted-foreground">API key management coming soon</p>
               </div>
             </div>
           )}
-
-          {/* Save Button */}
-          <div className="mt-6 flex justify-end">
-            <button className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-6">
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </button>
-          </div>
         </motion.div>
       </div>
     </div>

@@ -9,6 +9,7 @@ on:
       - "feature/week1-patch-generation"
       - "feature/week2-verification-engine"
       - "feature/week3-saas-foundation"
+      - "ft/week4-workspace"
       - "feature/readme"
       - "bugfix/docker"
       - "hotfix/api"
