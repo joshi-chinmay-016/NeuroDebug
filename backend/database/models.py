@@ -55,11 +55,15 @@ class SubscriptionTier(str, Enum):
 class VerificationStatus(str, Enum):
     """Verification status enumeration."""
 
-    VERIFIED = "verified"
-    FAILED = "failed"
-    TIMEOUT = "timeout"
-    ERROR = "error"
-    UNVERIFIED = "unverified"
+    VERIFIED = "VERIFIED"
+    UNVERIFIED = "UNVERIFIED"
+    FAILED_VERIFICATION = "FAILED_VERIFICATION"
+    NO_FIX_FOUND = "NO_FIX_FOUND"
+    INVALID_PATCH = "INVALID_PATCH"
+    EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT"
+    TEST_FAILURE = "TEST_FAILURE"
+    EXECUTION_ERROR = "EXECUTION_ERROR"
+    VERIFICATION_UNAVAILABLE = "VERIFICATION_UNAVAILABLE"
 
 
 # ──────────────────────────────────────────────────────────────────

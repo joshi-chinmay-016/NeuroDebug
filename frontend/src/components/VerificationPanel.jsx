@@ -1,14 +1,6 @@
-import { useState } from 'react'
-
-// ── Verification Badge Component ─────────────────────────────────────
-function VerificationBadge({ status }) {
-  const isVerified = status === 'VERIFIED'
-  return (
-    <span className={`verification-badge ${isVerified ? 'verified' : 'unverified'}`}>
-      {isVerified ? '✓ VERIFIED' : '✕ UNVERIFIED'}
-    </span>
-  )
-}
+import React, { useState } from 'react'
+import VerdictBadge from './VerdictBadge'
+import { CheckCircle2, XCircle, Clock, AlertTriangle, ShieldCheck, Terminal } from 'lucide-react'
 
 // ── Execution Timeline Component ───────────────────────────────────────
 function ExecutionTimeline({ evidence }) {
@@ -94,7 +86,7 @@ function TestSummary({ testResults }) {
 
   return (
     <div className="test-summary">
-      <h4 className="test-summary-title">Test Summary</h4>
+      <h4 className="test-summary-title">Test Suite Evidence</h4>
       <div className="test-summary-stats">
         <div className="test-stat test-stat-total">
           <span className="stat-value">{total_tests}</span>
@@ -147,32 +139,32 @@ export default function VerificationPanel({ verificationReport }) {
   return (
     <div className="verification-panel">
       <div className="verification-header">
-        <h3 className="verification-title">Verification Report</h3>
-        <VerificationBadge status={verification_status} />
+        <h3 className="verification-title">Verification Evidence Report</h3>
+        <VerdictBadge status={verification_status} />
       </div>
 
       <div className="verification-summary">
         <div className="summary-row">
-          <span className="summary-label">Status:</span>
-          <span className={`summary-value ${verification_status.toLowerCase()}`}>
+          <span className="summary-label">State Machine:</span>
+          <span className="summary-value font-mono font-semibold">
             {verification_status}
           </span>
         </div>
         <div className="summary-row">
-          <span className="summary-label">Runtime:</span>
+          <span className="summary-label">Verification Time:</span>
           <span className="summary-value">{(runtime * 1000).toFixed(0)}ms</span>
         </div>
         {failure_reason && (
           <div className="summary-row summary-row-error">
-            <span className="summary-label">Reason:</span>
+            <span className="summary-label">State Rationale:</span>
             <span className="summary-value">{failure_reason}</span>
           </div>
         )}
       </div>
 
-      <ExecutionTimeline evidence={evidence} />
+      {evidence && <ExecutionTimeline evidence={evidence} />}
 
-      {evidence.test_results && <TestSummary testResults={evidence.test_results} />}
+      {evidence?.test_results && <TestSummary testResults={evidence.test_results} />}
 
       <div className="verification-logs">
         <ExpandableLogs
@@ -180,23 +172,27 @@ export default function VerificationPanel({ verificationReport }) {
           content={execution_summary}
           defaultOpen={true}
         />
-        <ExpandableLogs
-          title="Original Code Output"
-          content={
-            evidence.original_code_execution.stdout ||
-            evidence.original_code_execution.stderr
-          }
-        />
-        <ExpandableLogs
-          title="Patched Code Output"
-          content={
-            evidence.patched_code_execution.stdout ||
-            evidence.patched_code_execution.stderr
-          }
-        />
-        {evidence.test_results && (
+        {evidence?.original_code_execution && (
           <ExpandableLogs
-            title="Test Output"
+            title="Original Code Output"
+            content={
+              evidence.original_code_execution.stdout ||
+              evidence.original_code_execution.stderr
+            }
+          />
+        )}
+        {evidence?.patched_code_execution && (
+          <ExpandableLogs
+            title="Patched Code Output"
+            content={
+              evidence.patched_code_execution.stdout ||
+              evidence.patched_code_execution.stderr
+            }
+          />
+        )}
+        {evidence?.test_results && (
+          <ExpandableLogs
+            title="Pytest Output"
             content={evidence.test_results.output}
           />
         )}

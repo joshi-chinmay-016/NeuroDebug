@@ -18,10 +18,17 @@ logger = get_logger("neurodebug.verification_engine")
 
 
 class VerificationStatus(str, Enum):
-    """Verification status classification."""
+    """Explicit verification state machine status."""
 
     VERIFIED = "VERIFIED"
     UNVERIFIED = "UNVERIFIED"
+    FAILED_VERIFICATION = "FAILED_VERIFICATION"
+    NO_FIX_FOUND = "NO_FIX_FOUND"
+    INVALID_PATCH = "INVALID_PATCH"
+    EXECUTION_TIMEOUT = "EXECUTION_TIMEOUT"
+    TEST_FAILURE = "TEST_FAILURE"
+    EXECUTION_ERROR = "EXECUTION_ERROR"
+    VERIFICATION_UNAVAILABLE = "VERIFICATION_UNAVAILABLE"
 
 
 @dataclass
@@ -225,13 +232,16 @@ class VerificationEngine:
         Returns:
             Tuple of (VerificationStatus, failure_reason).
         """
-        failure_reason = None
+        # 1. Check for timeout in patched execution
+        if patched_execution.timeout_occurred:
+            failure_reason = f"Patched code execution timed out after {patched_execution.execution_time:.2f}s"
+            return VerificationStatus.EXECUTION_TIMEOUT, failure_reason
 
-        # If tests are available, they are the primary verification method
+        # 2. If tests are available, they are the primary behavioral verification method
         if test_results:
             if test_results.failed > 0:
-                failure_reason = f"{test_results.failed} test(s) failed"
-                return VerificationStatus.UNVERIFIED, failure_reason
+                failure_reason = f"{test_results.failed} test(s) failed out of {test_results.total_tests}"
+                return VerificationStatus.TEST_FAILURE, failure_reason
 
             if test_results.passed > 0 and test_results.failed == 0:
                 return VerificationStatus.VERIFIED, None
@@ -240,32 +250,27 @@ class VerificationEngine:
                 failure_reason = "No tests were executed"
                 return VerificationStatus.UNVERIFIED, failure_reason
 
-        # Without tests, use execution comparison
-        # Patch is verified if it fixes the original issue
+        # 3. Without tests, use execution comparison
+        # Patch is verified if it fixes the original issue without introducing errors
         if execution_comparison["success_improved"]:
             return VerificationStatus.VERIFIED, None
 
-        # Patch is unverified if it introduces a regression
+        # Patch failed verification if it introduces a regression
         if execution_comparison["success_regressed"]:
-            failure_reason = "Patch introduced execution regression"
-            return VerificationStatus.UNVERIFIED, failure_reason
+            failure_reason = "Patch introduced an execution regression (original code passed, patched code failed)"
+            return VerificationStatus.FAILED_VERIFICATION, failure_reason
 
-        # Patch is unverified if it times out
-        if patched_execution.timeout_occurred:
-            failure_reason = "Patched code execution timed out"
-            return VerificationStatus.UNVERIFIED, failure_reason
-
-        # Patch is unverified if it still fails
+        # Patch failed verification if it still fails to execute
         if not patched_execution.success:
-            failure_reason = (
-                f"Patched code failed with exit code {patched_execution.exit_code}"
-            )
-            return VerificationStatus.UNVERIFIED, failure_reason
+            if patched_execution.exit_code is not None and patched_execution.exit_code != 0:
+                failure_reason = f"Patched code failed with exit code {patched_execution.exit_code}"
+                return VerificationStatus.FAILED_VERIFICATION, failure_reason
+            failure_reason = "Patched code encountered a runtime error"
+            return VerificationStatus.EXECUTION_ERROR, failure_reason
 
-        # If original succeeded and patch succeeded, need more evidence
-        # Without tests, we cannot verify the fix is correct
+        # If original succeeded and patch succeeded, need more behavioral evidence
         if original_execution.success and patched_execution.success:
-            failure_reason = "Insufficient evidence - both original and patched code execute successfully without tests"
+            failure_reason = "Insufficient evidence - both original and patched code execute successfully without test assertions"
             return VerificationStatus.UNVERIFIED, failure_reason
 
         return VerificationStatus.UNVERIFIED, "Unable to verify patch correctness"
