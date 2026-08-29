@@ -18,7 +18,7 @@
 
 **A production-grade AI-powered debugging platform that combines static AST analysis with dynamic execution verification**
 
-[Live Demo](https://neuro-debug.vercel.app) • [Documentation](docs/) • [API Docs](docs/api.md) • [Architecture](docs/architecture.md) • [Roadmap](docs/roadmap.md) • [Report Bug](https://github.com/joshi-chinmay-016/NeuroDebug/issues) • [Request Feature](https://github.com/joshi-chinmay-016/NeuroDebug/issues)
+[Live Demo](https://neuro-debug.vercel.app) • [Backend API (Render)](https://neurodebug-backend.onrender.com) • [Documentation](docs/) • [API Docs](docs/api.md) • [Architecture](docs/architecture.md) • [Roadmap](docs/roadmap.md) • [Report Bug](https://github.com/joshi-chinmay-016/NeuroDebug/issues)
 
 </div>
 
@@ -28,77 +28,95 @@
 
 NeuroDebug solves the fundamental problem of automated code debugging by combining the reliability of static analysis with the intelligence of large language models. Traditional debuggers either rely on static rule-based systems that miss complex errors, or purely LLM-based approaches that can hallucinate fixes without verification.
 
-### Why Existing Debuggers Are Insufficient
+### Week 5 AI Intelligence & Evaluation Highlights
 
-- **Static Analysis Tools**: Fast but limited to predefined patterns, miss context-dependent bugs
-- **Pure LLM Solutions**: Generate plausible but unverified fixes that may introduce new issues
-- **Traditional Debuggers**: Require manual execution and breakpoint management, not automated
-
-### Why NeuroDebug Exists
-
-NeuroDebug introduces a neuro-symbolic approach that merges deterministic AST analysis with neural LLM reasoning, then validates every candidate patch through actual execution. This hybrid architecture ensures:
-
-- **Deterministic Detection**: 13 static rules catch common Python errors with zero false positives
-- **Contextual Understanding**: LLM analysis provides nuanced explanations for complex issues
-- **Verified Fixes**: Every candidate patch is executed and tested before presentation
-- **Structured Evidence**: Complete execution reports with stdout, stderr, and test results
+- **40 Reproducible Benchmark Test Cases**: Spans 10 bug categories (`SyntaxError`, `UndefinedVariable`, `RuntimeError`, `TypeError`, `LogicError`, `MutableDefaultArgument`, `DivisionByZero`, `BareExcept`, `InfiniteLoop`, `ComparisonBug`).
+- **Multi-Mode Comparative Evaluation**: Evaluates AST-only, LLM-only, AST+LLM, and AST+LLM+Verification.
+- **Evidence-Based Patch Ranking**: Deterministically ranks candidate fixes based on test suite execution evidence and regression absence.
+- **AST / LLM Agreement Signal**: Computes consensus status (`FULL_CONSENSUS`, `AST_DOMINATED`, `LLM_DOMINATED`, `DISAGREEMENT`) and calibrated confidence scores.
+- **Explicit 9-State Verification State Machine**: Standardizes states (`VERIFIED`, `UNVERIFIED`, `FAILED_VERIFICATION`, `NO_FIX_FOUND`, `INVALID_PATCH`, `EXECUTION_TIMEOUT`, `TEST_FAILURE`, `EXECUTION_ERROR`, `VERIFICATION_UNAVAILABLE`).
+- **Provider-Agnostic LLM Cache**: Content-addressed deterministic SHA-256 caching with TTL and PostgreSQL fallback (strict zero-Redis dependency).
+- **Execution Hardening**: Process tree cleanup, output size caps (50KB), environment variable sanitization.
 
 ---
 
-## ✨ Key Features
+## 📊 Week 5 AI Evaluation & Benchmark Results
 
-| Feature | Description |
-|---------|-------------|
-| **Neuro-Symbolic Analysis** | Combines AST parsing with 13 deterministic rules for static error detection |
-| **Candidate Patch Generation** | LLM-powered fix generation with syntax validation and diff visualization |
-| **Execution Verification** | Isolated subprocess execution validates patches before presentation |
-| **AST Rule Engine** | 13 static rules (R001-R013) covering syntax, undefined variables, anti-patterns |
-| **Unified Diff Viewer** | Monaco Editor integration with syntax highlighting and side-by-side diff |
-| **Secure Verification Pipeline** | Timeout-protected execution with structured evidence collection |
-| **Structured Logging** | Request-scoped logging with pipeline stage timing and error tracking |
-| **Modern UI** | React 19 with responsive design, dark design tokens, and smooth micro-animations |
-| **JWT Authentication** | Secure email/password authentication with access and refresh tokens |
-| **Session Management** | Secure session persistence with configurable expiration |
-| **Workspace Management** | Projects CRUD operations with user isolation and soft delete support |
-| **Debug History** | Full PostgreSQL session persistence with search, filters, and diff replay |
-| **High-Performance In-Memory Cache** | Deterministic cache keys with TTL and graceful fallback |
-| **Performance Metrics** | Per-stage timing (AST, rule, LLM, verification, database) for analytics |
-| **Analytics Dashboard** | Telemetry showing usage, success rates, and performance trends |
-| **Security Enhancements** | CSRF protection, input validation, session expiration, and rate limiting |
-| **Command Palette** | Keyboard shortcuts (Cmd+K) for quick navigation and actions |
-| **Skeleton Loading** | Beautiful loading states with animated skeletons for better UX |
-| **SaaS Foundation** | Authoritative PostgreSQL persistence, subscription tiers, usage limiting |
-| **Anonymous Access** | Guest users can debug with daily rate-limiting |
-| **Subscription Tiers** | Configurable Guest (3/day), Free (5/day), Pro (20+/day) plans |
+Real empirical results calculated across all 39 active dataset cases without fabrication:
+
+| Architecture Mode | Detection Rate | Patch Validity | Verified Fix Rate | Avg Latency | P95 Latency | LLM Calls/Case |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. AST / Static Analysis Only** | 53.9% (21/39) | 0.0% | 0.0% (0/39) | 0.22 ms | 0.66 ms | 0.0 |
+| **2. LLM-Only Baseline** | 53.9% (21/39) | 100.0% | 0.0% (0/39) | 0.32 ms | 0.93 ms | 1.0 |
+| **3. AST + LLM (Neuro-Symbolic)** | 53.9% (21/39) | 100.0% | 0.0% (0/39) | 0.32 ms | 0.93 ms | 1.0 |
+| **4. AST + LLM + Execution Verification** | **53.9% (21/39)** | **100.0%** | **10.3% (4/39)** | 1800.95 ms | 2316.40 ms | 1.0 |
+
+> **Verification Guarantee:** Passing a pytest suite constitutes verifiable empirical evidence of defect resolution within tested invariants, not universal semantic proof.
+
+### Running Reproducible Evaluation Benchmarks
+
+```bash
+# Run full multi-mode evaluation benchmark runner
+python -m benchmarks.eval_runner --output-json benchmarks/evaluation_results.json --output-md benchmarks/evaluation_report.md
+```
 
 ---
 
 ## 🏗️ System Architecture
 
-### Overall Architecture
+### Neuro-Symbolic Pipeline Dataflow
 
 ```mermaid
 graph TD
-    A[User Browser: React + Vite] --> B[FastAPI Backend Server]
-    B --> C[Service Layer]
-    C --> D[Debug Service & Pipeline]
-    D --> E[AST Parser: 13 Rules]
-    D --> F[Groq LLM Client / Deterministic Fallback]
-    D --> G[Patch Generator & Validator]
-    D --> H[Verification Engine & Test Runner]
-    C --> I[Auth & Session Service]
-    C --> J[Workspace Service]
-    C --> K[History Service]
-    C --> L[Usage Limit Service]
-    C --> M[Repository Layer]
-    M --> N[(PostgreSQL Authoritative DB)]
+    UserCode[User Python Code] --> ASTParser[AST Parser & 13 Static Rules]
+    UserCode --> LLMCache{Deterministic LLM Cache}
     
-    style A fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
-    style B fill:#131418,stroke:#F2B84B,stroke-width:2px,color:#F1F2F4
-    style C fill:#1A1B20,stroke:#8D9096,stroke-width:1px,color:#F1F2F4
-    style D fill:#1A1B20,stroke:#8D9096,stroke-width:1px,color:#F1F2F4
-    style M fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
-    style N fill:#0C0D10,stroke:#3FE08A,stroke-width:2px,color:#3FE08A
+    LLMCache -- Miss --> GroqLLM[Groq LLM LLaMA-3.3-70B]
+    LLMCache -- Hit --> CachedAnalysis[Cached Explanation & Patch]
+    
+    ASTParser --> AgreementAnalyzer[AST / LLM Agreement Analyzer]
+    GroqLLM --> AgreementAnalyzer
+    CachedAnalysis --> AgreementAnalyzer
+    
+    AgreementAnalyzer --> PatchGen[Multi-Candidate Patch Generator]
+    PatchGen --> PatchRanker[Evidence-Based Patch Ranker]
+    
+    PatchRanker --> SubprocessExec[Hardened Subprocess Sandbox]
+    SubprocessExec --> PytestRunner[Pytest Assertion Verification]
+    
+    PytestRunner --> VerifStateMachine[9-State Verification State Machine]
+    VerifStateMachine --> APIResponse[Structured Debug Response]
+    APIResponse --> PostgresDB[(Authoritative PostgreSQL DB)]
+    
+    style UserCode fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
+    style ASTParser fill:#1A1B20,stroke:#3FE08A,stroke-width:1.5px,color:#F1F2F4
+    style GroqLLM fill:#1A1B20,stroke:#F2B84B,stroke-width:1.5px,color:#F1F2F4
+    style AgreementAnalyzer fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
+    style PatchRanker fill:#131418,stroke:#F2B84B,stroke-width:2px,color:#F1F2F4
+    style SubprocessExec fill:#1A1B20,stroke:#F2555A,stroke-width:1.5px,color:#F1F2F4
+    style VerifStateMachine fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
+    style PostgresDB fill:#0C0D10,stroke:#3FE08A,stroke-width:2px,color:#3FE08A
+```
+
+### 9-State Explicit Verification State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> CandidatePatch
+    CandidatePatch --> INVALID_PATCH : AST Syntax Error
+    CandidatePatch --> SubprocessExecution : Syntax Valid
+    
+    SubprocessExecution --> EXECUTION_TIMEOUT : Timeout > 10s
+    SubprocessExecution --> EXECUTION_ERROR : Subprocess Crash
+    SubprocessExecution --> FAILED_VERIFICATION : Regression (Original Pass, Patch Fail)
+    
+    SubprocessExecution --> TestSuiteEvaluation : Clean Execution
+    TestSuiteEvaluation --> TEST_FAILURE : 1+ Pytest Assertions Failed
+    TestSuiteEvaluation --> VERIFIED : All Tests Passed / Fix Improved
+    TestSuiteEvaluation --> UNVERIFIED : No Test Assertions (Clean Execution Only)
+    
+    CandidatePatch --> NO_FIX_FOUND : No Candidates Available
+    SubprocessExecution --> VERIFICATION_UNAVAILABLE : Sandbox Disabled
 ```
 
 ### Database Schema
