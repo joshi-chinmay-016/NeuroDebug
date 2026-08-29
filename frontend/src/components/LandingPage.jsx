@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import BlurText from './BlurText'
 import SplashCursor from './SplashCursorNew'
 import SaasFooter from './SaasFooter'
 import StarBorder from './StarBorder'
 import TextType from './TextType'
+// import NeuralNetworkBackground from './NeuralNetworkBackground' // Temporarily disabled due to rolldown bundler issue
 import './LandingPage.css'
-// import NeuralNetworkBackground from './NeuralNetworkBackground'
+
+gsap.registerPlugin(ScrollTrigger)
 
 export default function LandingPage() {
   const [showDeveloperCard, setShowDeveloperCard] = useState(true)
   const developerCardRef = useRef(null)
+  const featuresRef = useRef(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,13 +34,45 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // GSAP animations for scroll
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Animate feature cards on scroll
+      gsap.from('.feature-card', {
+        scrollTrigger: {
+          trigger: '.features-section',
+          start: 'top 80%',
+          end: 'bottom 20%',
+          scrub: 1,
+        },
+        y: 100,
+        opacity: 0,
+        stagger: 0.2,
+        duration: 0.8,
+      })
+
+      // Animate developer card
+      gsap.from('.developer-card', {
+        scrollTrigger: {
+          trigger: '.developer-card',
+          start: 'top 85%',
+        },
+        y: 50,
+        opacity: 0,
+        duration: 1,
+      })
+    }, featuresRef)
+
+    return () => ctx.revert()
+  }, [])
+
   const handleAnimationComplete = () => {
     console.log('Neuro-Debug animation completed!')
   }
 
   return (
     <div className="landing-page">
-      {/* <NeuralNetworkBackground /> */}
+      {/* NeuralNetworkBackground temporarily disabled due to rolldown bundler issue */}
       <SplashCursor 
           DENSITY_DISSIPATION={2}
           VELOCITY_DISSIPATION={3}
@@ -88,7 +125,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="features-section">
+      <section className="features-section" ref={featuresRef}>
         <div className="section-container">
           <h2 className="section-title">Why NeuroDebug?</h2>
           <div className="features-grid">
@@ -114,6 +151,30 @@ export default function LandingPage() {
               <p>
                 Get real-time error detection, explanations, and fixes in seconds, 
                 not minutes or hours.
+              </p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon">🔒</div>
+              <h3>Secure & Private</h3>
+              <p>
+                Your code never leaves your environment. All analysis happens locally 
+                with optional cloud augmentation.
+              </p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon">🎯</div>
+              <h3>Precision Targeting</h3>
+              <p>
+                AST-based analysis pinpoints exact error locations, reducing false 
+                positives and improving accuracy.
+              </p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon">📊</div>
+              <h3>Analytics Dashboard</h3>
+              <p>
+                Track your debugging history, success rates, and performance metrics 
+                with comprehensive analytics.
               </p>
             </div>
           </div>

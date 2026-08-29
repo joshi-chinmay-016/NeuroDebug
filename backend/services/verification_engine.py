@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any
 
 from services.execution_layer import ExecutionLayer, ExecutionResult
-from services.test_runner import TestRunner, TestSuiteResult
+from services.test_runner import PytestRunner, TestSuiteResultData
 from utils.logging import get_logger, log_verification_stage
 
 logger = get_logger("neurodebug.verification_engine")
@@ -30,7 +30,7 @@ class VerificationEvidence:
 
     original_code_execution: ExecutionResult
     patched_code_execution: ExecutionResult
-    test_results: TestSuiteResult | None
+    test_results: TestSuiteResultData | None
     execution_comparison: dict[str, Any]
 
 
@@ -60,17 +60,17 @@ class VerificationEngine:
     def __init__(
         self,
         execution_layer: ExecutionLayer | None = None,
-        test_runner: TestRunner | None = None,
+        test_runner: PytestRunner | None = None,
     ):
         """
         Initialize the verification engine.
 
         Args:
             execution_layer: Optional ExecutionLayer instance.
-            test_runner: Optional TestRunner instance.
+            test_runner: Optional PytestRunner instance.
         """
         self.execution_layer = execution_layer or ExecutionLayer()
-        self.test_runner = test_runner or TestRunner()
+        self.test_runner = test_runner or PytestRunner()
 
     def verify_patch(
         self,
@@ -210,7 +210,7 @@ class VerificationEngine:
         self,
         original_execution: ExecutionResult,
         patched_execution: ExecutionResult,
-        test_results: TestSuiteResult | None,
+        test_results: TestSuiteResultData | None,
         execution_comparison: dict[str, Any],
     ) -> tuple[VerificationStatus, str | None]:
         """
@@ -274,7 +274,7 @@ class VerificationEngine:
         self,
         original: ExecutionResult,
         patched: ExecutionResult,
-        test_results: TestSuiteResult | None,
+        test_results: TestSuiteResultData | None,
         status: VerificationStatus,
     ) -> str:
         """

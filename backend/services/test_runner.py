@@ -5,6 +5,7 @@ Executes pytest test cases and records results.
 """
 
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ from pathlib import Path
 
 
 @dataclass
-class TestResult:
+class TestResultData:
     """Result of a single test execution."""
 
     test_name: str
@@ -24,7 +25,7 @@ class TestResult:
 
 
 @dataclass
-class TestSuiteResult:
+class TestSuiteResultData:
     """Result of a complete test suite execution."""
 
     total_tests: int
@@ -32,12 +33,12 @@ class TestSuiteResult:
     failed: int
     skipped: int
     duration: float
-    test_results: list[TestResult]
+    test_results: list[TestResultData]
     output: str
     error: str | None
 
 
-class TestRunner:
+class PytestRunner:
     """
     Executes pytest test cases and records detailed results.
 
@@ -60,7 +61,7 @@ class TestRunner:
         code: str,
         test_code: str,
         timeout: float | None = None,
-    ) -> TestSuiteResult:
+    ) -> TestSuiteResultData:
         """
         Execute pytest tests for the given code.
 
@@ -70,7 +71,7 @@ class TestRunner:
             timeout: Override timeout for this execution.
 
         Returns:
-            TestSuiteResult with detailed test execution results.
+            TestSuiteResultData with detailed test execution results.
         """
         exec_timeout = timeout if timeout is not None else self.timeout
 
@@ -95,6 +96,8 @@ class TestRunner:
                 # Run pytest with verbose output for detailed results
                 result = subprocess.run(
                     [
+                        sys.executable,
+                        "-m",
                         "pytest",
                         str(test_file),
                         "-v",
@@ -126,7 +129,7 @@ class TestRunner:
         failed = sum(1 for t in test_results if t.failed)
         skipped = sum(1 for t in test_results if t.skipped)
 
-        return TestSuiteResult(
+        return TestSuiteResultData(
             total_tests=len(test_results),
             passed=passed,
             failed=failed,
@@ -137,7 +140,7 @@ class TestRunner:
             error=error,
         )
 
-    def _parse_pytest_output(self, output: str) -> list[TestResult]:
+    def _parse_pytest_output(self, output: str) -> list[TestResultData]:
         """
         Parse pytest verbose output to extract individual test results.
 
@@ -145,7 +148,7 @@ class TestRunner:
             output: Raw pytest output.
 
         Returns:
-            List of TestResult objects.
+            List of TestResultData objects.
         """
         test_results = []
         lines = output.split("\n")
@@ -185,7 +188,7 @@ class TestRunner:
                         error_message = "Test failed"
 
                     test_results.append(
-                        TestResult(
+                        TestResultData(
                             test_name=test_name,
                             passed=passed,
                             failed=failed,

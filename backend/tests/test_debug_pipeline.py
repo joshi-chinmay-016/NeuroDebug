@@ -15,7 +15,7 @@ from models.responses import (
 )
 from services.debug_pipeline import DebugPipeline
 from services.execution_layer import ExecutionResult
-from services.test_runner import TestResult, TestSuiteResult
+from services.test_runner import TestResultData, TestSuiteResultData
 from services.verification_engine import (
     VerificationEvidence,
     VerificationReport,
@@ -250,14 +250,14 @@ class TestDebugPipeline:
                     timeout_occurred=False,
                     traceback=None,
                 ),
-                test_results=TestSuiteResult(
+                test_results=TestSuiteResultResponse(
                     total_tests=1,
                     passed=1,
                     failed=0,
                     skipped=0,
                     duration=0.1,
                     test_results=[
-                        TestResult(
+                        TestResultResponse(
                             test_name="test_add",
                             passed=True,
                             failed=False,
@@ -284,7 +284,7 @@ class TestDebugPipeline:
         expected_verification_response = _verification_report_response()
         mock_convert_verification_report.return_value = expected_verification_response
 
-        result = await pipeline.execute(code="x = undefined_var", api_key="test-key")
+        result = await pipeline.execute(code="x = undefined_var", api_key="gsk_test_key_12345")
 
         assert result.error_type == "UndefinedVariable"
         assert result.explanation == "LLM explanation"

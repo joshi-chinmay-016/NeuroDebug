@@ -1,0 +1,5 @@
+/* LandingPageNew.css - Verification Core styles */
+
+.hero-gradient {
+  background: radial-gradient(circle at 50% 50%, rgba(63, 224, 138, 0.05) 0%, transparent 70%);
+}

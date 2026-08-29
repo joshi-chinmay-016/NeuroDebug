@@ -127,17 +127,9 @@ async def register(
                     detail={"error": "weak_password", "message": error_msg},
                 )
 
-            # Get free subscription plan
+            # Get free subscription plan if seeded
             free_plan = await subscription_repo.get_by_tier(SubscriptionTier.FREE.value)
-            if not free_plan:
-                logger.error("Free subscription plan not found")
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "error": "configuration_error",
-                        "message": "Free tier not available",
-                    },
-                )
+            subscription_plan_id = free_plan.id if free_plan else None
 
             # Hash password
             password_hash = AuthService.hash_password(register_request.password)
@@ -147,7 +139,7 @@ async def register(
                 email=register_request.email,
                 password_hash=password_hash,
                 display_name=register_request.display_name,
-                subscription_plan_id=free_plan.id,
+                subscription_plan_id=subscription_plan_id,
             )
 
             # Generate tokens

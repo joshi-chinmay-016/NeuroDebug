@@ -3,7 +3,7 @@ Tests for Verification Engine.
 """
 
 from services.execution_layer import ExecutionLayer
-from services.test_runner import TestRunner
+from services.test_runner import PytestRunner
 from services.verification_engine import VerificationEngine, VerificationStatus
 
 
@@ -99,7 +99,7 @@ def test_add():
     def test_verify_patch_custom_components(self):
         """Test verification with custom execution layer and test runner."""
         custom_exec = ExecutionLayer(timeout=5.0)
-        custom_test = TestRunner(timeout=5.0)
+        custom_test = PytestRunner(timeout=5.0)
         engine = VerificationEngine(
             execution_layer=custom_exec, test_runner=custom_test
         )

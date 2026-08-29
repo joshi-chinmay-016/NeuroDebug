@@ -9,16 +9,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 
 from models.errors import NeuroDebugError
 from utils.config import Config
 from utils.logging import get_logger
 
 logger = get_logger("neurodebug.auth_service")
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthenticationError(NeuroDebugError):
@@ -39,15 +36,17 @@ class AuthService:
     @staticmethod
     def hash_password(password: str) -> str:
         """
-        Hash a password using bcrypt.
+        Hash a password using native bcrypt.
 
         Args:
             password: Plain text password.
 
         Returns:
-            Hashed password.
+            Hashed password string.
         """
-        return pwd_context.hash(password)
+        pwd_bytes = password.encode("utf-8")[:72]
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -56,12 +55,17 @@ class AuthService:
 
         Args:
             plain_password: Plain text password.
-            hashed_password: Hashed password.
+            hashed_password: Hashed password string.
 
         Returns:
             True if password matches, False otherwise.
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        try:
+            pwd_bytes = plain_password.encode("utf-8")[:72]
+            hash_bytes = hashed_password.encode("utf-8")
+            return bcrypt.checkpw(pwd_bytes, hash_bytes)
+        except Exception:
+            return False
 
     @staticmethod
     def create_access_token(user_id: uuid.UUID, email: str, tier: str = "guest") -> str:

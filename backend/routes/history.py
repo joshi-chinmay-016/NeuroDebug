@@ -215,7 +215,7 @@ async def get_debug_session(
 @router.get("/sessions/{session_id}/export")
 async def export_debug_session(
     session_id: uuid.UUID,
-    format: str = Query("json", regex="^(json|txt)$", description="Export format"),
+    format: str = Query("json", pattern="^(json|txt)$", description="Export format"),
     current_user: dict = Depends(get_current_user_required),
 ):
     """

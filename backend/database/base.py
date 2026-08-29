@@ -7,8 +7,7 @@ Provides common mixins and base classes for SQLAlchemy models.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -59,7 +58,7 @@ class UUIDPrimaryKeyMixin:
     """Mixin for UUID primary key."""
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         nullable=False,

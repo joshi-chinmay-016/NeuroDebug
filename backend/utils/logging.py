@@ -10,7 +10,7 @@ _request_id: ContextVar[str] = ContextVar("request_id", default="")
 
 def configure_logging(level: str = "INFO") -> None:
     """Configure structured logging for the application."""
-    log_format = "%(asctime)s [%(levelname)s] %(name)s — [%(request_id)s] %(message)s"
+    log_format = "%(asctime)s [%(levelname)s] %(name)s — %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
 
     logging.basicConfig(

@@ -4,6 +4,8 @@ Cache Middleware for FastAPI
 Provides caching functionality with TTL and graceful fallback.
 """
 
+import hashlib
+import json
 from functools import wraps
 from typing import Any, Callable
 
@@ -128,3 +130,22 @@ def cache_key_from_request(*fields: str) -> Callable[[Request], dict]:
         return params
 
     return key_func
+
+
+def generate_cache_key(prefix: str, resource: str, params: dict[str, Any]) -> str:
+    """
+    Generate a deterministic cache key from prefix, resource, and parameters.
+
+    Args:
+        prefix: Cache key prefix (e.g., service name).
+        resource: Resource identifier (e.g., endpoint name).
+        params: Dictionary of parameters to include in the key.
+
+    Returns:
+        Deterministic cache key string.
+    """
+    # Sort params for deterministic ordering
+    sorted_params = dict(sorted(params.items()))
+    params_str = json.dumps(sorted_params, sort_keys=True)
+    params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
+    return f"{prefix}:{resource}:{params_hash}"

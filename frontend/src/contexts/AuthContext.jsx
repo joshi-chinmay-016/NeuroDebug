@@ -23,37 +23,16 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load tokens and user data from localStorage on mount
-  useEffect(() => {
-    const loadAuthState = () => {
-      try {
-        const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-        const userData = localStorage.getItem(USER_DATA_KEY);
-
-        if (accessToken && userData) {
-          setUser(JSON.parse(userData));
-          setIsAuthenticated(true);
-        }
-      } catch (error) {
-        console.error('Failed to load auth state:', error);
-        // Clear corrupted data
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
-        localStorage.removeItem(USER_DATA_KEY);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadAuthState();
-  }, []);
-
   // Save tokens and user data to localStorage
   const saveAuthState = useCallback((accessToken, refreshToken, userData) => {
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-      localStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+      if (refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      }
+      if (userData) {
+        localStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+      }
     } catch (error) {
       console.error('Failed to save auth state:', error);
     }
@@ -69,6 +48,48 @@ export const AuthProvider = ({ children }) => {
       console.error('Failed to clear auth state:', error);
     }
   }, []);
+
+  // Load tokens and user data from localStorage on mount and verify with /auth/me
+  useEffect(() => {
+    const loadAuthState = async () => {
+      try {
+        const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+        const userData = localStorage.getItem(USER_DATA_KEY);
+
+        if (accessToken) {
+          if (userData) {
+            setUser(JSON.parse(userData));
+            setIsAuthenticated(true);
+          }
+
+          // Verify with backend
+          try {
+            const me = await authService.getCurrentUser(accessToken);
+            if (me) {
+              const updatedUserData = {
+                user_id: me.user_id,
+                email: me.email,
+                display_name: me.display_name,
+                tier: me.tier,
+              };
+              setUser(updatedUserData);
+              setIsAuthenticated(true);
+              localStorage.setItem(USER_DATA_KEY, JSON.stringify(updatedUserData));
+            }
+          } catch (meErr) {
+            console.warn('Session verification failed on mount:', meErr.message);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load auth state:', error);
+        clearAuthState();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAuthState();
+  }, [clearAuthState]);
 
   // Login function
   const login = useCallback(async (email, password) => {
@@ -90,7 +111,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Login failed:', error);
       return {
         success: false,
-        error: error.response?.data?.detail?.message || 'Login failed',
+        error: error.message || 'Invalid email or password',
       };
     }
   }, [saveAuthState]);
@@ -115,7 +136,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Registration failed:', error);
       return {
         success: false,
-        error: error.response?.data?.detail?.message || 'Registration failed',
+        error: error.message || 'Registration failed',
       };
     }
   }, [saveAuthState]);
@@ -126,7 +147,6 @@ export const AuthProvider = ({ children }) => {
       await authService.logout();
     } catch (error) {
       console.error('Logout API call failed:', error);
-      // Continue with local logout even if API call fails
     } finally {
       clearAuthState();
       setUser(null);
@@ -143,32 +163,14 @@ export const AuthProvider = ({ children }) => {
       }
 
       const response = await authService.refreshToken(refreshToken);
-      const userData = {
-        user_id: response.user_id,
-        email: response.email,
-        display_name: response.display_name,
-        tier: response.tier,
-      };
-
-      saveAuthState(response.access_token, response.refresh_token, userData);
-      setUser(userData);
-      setIsAuthenticated(true);
-
-      return { success: true, user: userData };
+      saveAuthState(response.access_token, response.refresh_token, null);
+      return response.access_token;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      // Clear auth state on refresh failure
-      clearAuthState();
-      setUser(null);
-      setIsAuthenticated(false);
-      return { success: false, error: 'Session expired' };
+      logout();
+      throw error;
     }
-  }, [saveAuthState, clearAuthState]);
-
-  // Get access token for API calls
-  const getAccessToken = useCallback(() => {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
-  }, []);
+  }, [logout, saveAuthState]);
 
   const value = {
     user,
@@ -178,8 +180,9 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     refreshAccessToken,
-    getAccessToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+export default AuthContext;

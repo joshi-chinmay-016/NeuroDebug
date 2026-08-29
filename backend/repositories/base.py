@@ -39,19 +39,21 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self.model = model
         self.session = session
 
-    async def get_by_id(self, id: uuid.UUID) -> ModelType | None:
+    async def get_by_id(self, id: uuid.UUID, include_deleted: bool = False) -> ModelType | None:
         """
         Get a single record by ID.
 
         Args:
             id: UUID of the record.
+            include_deleted: Whether to include soft-deleted records.
 
         Returns:
             Model instance or None if not found.
         """
-        result = await self.session.execute(
-            select(self.model).where(self.model.id == id)
-        )
+        query = select(self.model).where(self.model.id == id)
+        if not include_deleted and hasattr(self.model, 'deleted_at'):
+            query = query.where(self.model.deleted_at.is_(None))
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def get_all(
@@ -104,7 +106,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def update(
         self,
         id: uuid.UUID,
-        schema: UpdateSchemaType,
+        schema: UpdateSchemaType | None = None,
         **kwargs: Any,
     ) -> ModelType | None:
         """
@@ -112,7 +114,7 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
         Args:
             id: UUID of the record to update.
-            schema: Pydantic schema with update data.
+            schema: Pydantic schema with update data (optional).
             **kwargs: Additional fields to update.
 
         Returns:
@@ -122,7 +124,9 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         if not db_obj:
             return None
 
-        update_data = schema.model_dump(exclude_unset=True)
+        update_data = {}
+        if schema is not None:
+            update_data = schema.model_dump(exclude_unset=True)
         update_data.update(kwargs)
 
         await self.session.execute(

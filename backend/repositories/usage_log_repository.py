@@ -27,7 +27,7 @@ class UsageLogRepository(BaseRepository[UsageLog, Any, Any]):
 
     async def get_daily_usage(
         self,
-        session_id: str,
+        session_id: str | None = None,
         user_id: uuid.UUID | None = None,
         date: datetime | None = None,
     ) -> int:
@@ -35,7 +35,7 @@ class UsageLogRepository(BaseRepository[UsageLog, Any, Any]):
         Get daily usage count for a session or user.
 
         Args:
-            session_id: Session ID string.
+            session_id: Optional session ID string.
             user_id: Optional user UUID.
             date: Optional date to check (defaults to today).
 
@@ -48,15 +48,16 @@ class UsageLogRepository(BaseRepository[UsageLog, Any, Any]):
         start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
 
-        query = select(func.count(UsageLog.id)).where(
-            UsageLog.session_id == session_id,
+        conditions = [
             UsageLog.request_timestamp >= start_of_day,
             UsageLog.request_timestamp < end_of_day,
-        )
-
+        ]
+        if session_id:
+            conditions.append(UsageLog.session_id == session_id)
         if user_id:
-            query = query.where(UsageLog.user_id == user_id)
+            conditions.append(UsageLog.user_id == user_id)
 
+        query = select(func.count(UsageLog.id)).where(*conditions)
         result = await self.session.execute(query)
         return result.scalar() or 0
 

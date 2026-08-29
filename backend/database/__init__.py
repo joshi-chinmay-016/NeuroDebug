@@ -1,12 +1,16 @@
 """
 Database package initialization.
 
-Provides database session management and configuration.
+Provides database session management, PostgreSQL auto-provisioning, table creation,
+and subscription plan seeding.
 """
 
+import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -20,18 +24,24 @@ from utils.logging import get_logger
 
 logger = get_logger("neurodebug.database")
 
-# Create async engine
+import os
+from sqlalchemy.pool import NullPool
+
+# Create async engine with NullPool for tests to prevent closed event loop issues on Windows
 engine_kwargs = {
     "echo": Config.DATABASE_ECHO,
-    "pool_pre_ping": True,
 }
 
-# Only add pool parameters for non-SQLite databases
-if not Config.DATABASE_URL.startswith("sqlite"):
-    engine_kwargs.update({
-        "pool_size": Config.DATABASE_POOL_SIZE,
-        "max_overflow": Config.DATABASE_MAX_OVERFLOW,
-    })
+if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TESTING") == "true":
+    engine_kwargs["poolclass"] = NullPool
+else:
+    engine_kwargs["pool_pre_ping"] = True
+    # Only add pool parameters for non-SQLite databases
+    if not Config.DATABASE_URL.startswith("sqlite"):
+        engine_kwargs.update({
+            "pool_size": Config.DATABASE_POOL_SIZE,
+            "max_overflow": Config.DATABASE_MAX_OVERFLOW,
+        })
 
 engine = create_async_engine(Config.DATABASE_URL, **engine_kwargs)
 
@@ -52,10 +62,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
     Yields:
         AsyncSession: Database session.
-
-    Example:
-        async with get_db_session() as session:
-            result = await session.execute(query)
     """
     async with AsyncSessionLocal() as session:
         try:
@@ -69,17 +75,138 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+async def _ensure_database_exists() -> None:
+    """Ensure PostgreSQL database exists, creating it if needed."""
+    if not Config.DATABASE_URL.startswith("postgresql"):
+        return
+
+    try:
+        import asyncpg
+
+        parsed = urlparse(Config.DATABASE_URL.replace("postgresql+asyncpg://", "http://"))
+        db_name = parsed.path.lstrip("/")
+        user = parsed.username
+        password = parsed.password
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 5432
+
+        # Connect to default postgres DB
+        conn = await asyncpg.connect(
+            user=user,
+            password=password,
+            host=host,
+            port=port,
+            database="postgres",
+        )
+        exists = await conn.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", db_name
+        )
+        if not exists:
+            logger.info("Database '%s' does not exist. Creating automatically...", db_name)
+            await conn.execute(f'CREATE DATABASE "{db_name}"')
+            logger.info("Database '%s' created successfully.", db_name)
+        await conn.close()
+    except Exception as exc:
+        logger.warning("Could not auto-create database via postgres catalog: %s", exc)
+
+
+async def _seed_subscription_plans() -> None:
+    """Idempotently seed default subscription plans into PostgreSQL."""
+    try:
+        from database.models import SubscriptionPlan, SubscriptionTier
+
+        plans_to_seed = [
+            {
+                "name": "Guest",
+                "tier": SubscriptionTier.GUEST.value,
+                "price": 0.0,
+                "daily_request_limit": Config.DEFAULT_GUEST_LIMIT,  # 1 request / day
+                "features": {
+                    "ast_parsing": True,
+                    "rules": 13,
+                    "candidate_patch": True,
+                    "diff_view": True,
+                },
+            },
+            {
+                "name": "Free",
+                "tier": SubscriptionTier.FREE.value,
+                "price": 0.0,
+                "daily_request_limit": Config.DEFAULT_FREE_LIMIT,  # 5 requests / day
+                "features": {
+                    "ast_parsing": True,
+                    "rules": 13,
+                    "candidate_patch": True,
+                    "diff_view": True,
+                    "execution_verification": True,
+                    "test_runner": True,
+                    "workspaces": True,
+                    "history": True,
+                },
+            },
+            {
+                "name": "Pro",
+                "tier": SubscriptionTier.PRO.value,
+                "price": 19.0,
+                "daily_request_limit": Config.DEFAULT_PRO_LIMIT,  # 20 requests / day
+                "features": {
+                    "ast_parsing": True,
+                    "rules": 13,
+                    "candidate_patch": True,
+                    "diff_view": True,
+                    "execution_verification": True,
+                    "test_runner": True,
+                    "workspaces": True,
+                    "history": True,
+                    "priority_queue": True,
+                    "custom_api_key": True,
+                },
+            },
+        ]
+
+        async with get_db_session() as session:
+            query = select(SubscriptionPlan)
+            result = await session.execute(query)
+            existing_plans = {plan.tier: plan for plan in result.scalars().all()}
+
+            for plan_data in plans_to_seed:
+                tier = plan_data["tier"]
+                if tier in existing_plans:
+                    plan = existing_plans[tier]
+                    plan.daily_request_limit = plan_data["daily_request_limit"]
+                else:
+                    new_plan = SubscriptionPlan(
+                        id=uuid.uuid4(),
+                        name=plan_data["name"],
+                        tier=plan_data["tier"],
+                        price=plan_data["price"],
+                        billing_period="monthly" if plan_data["price"] > 0 else "lifetime",
+                        daily_request_limit=plan_data["daily_request_limit"],
+                        features=plan_data["features"],
+                        is_active=True,
+                    )
+                    session.add(new_plan)
+
+            await session.commit()
+            logger.info("Subscription plans seeded/updated successfully in PostgreSQL.")
+    except Exception as exc:
+        logger.warning("Could not seed subscription plans: %s", exc)
+
+
 async def init_db() -> None:
-    """Initialize database connection and create tables if needed."""
+    """Initialize database connection, create all tables, and seed initial plans."""
+    await _ensure_database_exists()
     try:
         async with engine.begin() as conn:
             # Import models module to ensure all models are registered with Base
-            # This import is needed for SQLAlchemy model registration
-            from database import models
+            from database import models  # noqa: F401
 
             # Create all tables
             await conn.run_sync(Base.metadata.create_all)
-            logger.info("Database initialized successfully")
+            logger.info("Database initialized and all tables verified successfully.")
+
+        # Seed default plans
+        await _seed_subscription_plans()
     except Exception as exc:
         logger.error("Failed to initialize database: %s", exc)
         raise

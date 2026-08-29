@@ -6,6 +6,7 @@ Architected for future Docker sandbox replacement.
 """
 
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass
@@ -94,7 +95,7 @@ class ExecutionLayer:
         try:
             # Execute in isolated subprocess
             result = subprocess.run(
-                ["python", temp_file_path],
+                [sys.executable, temp_file_path],
                 capture_output=True,
                 text=True,
                 timeout=exec_timeout,

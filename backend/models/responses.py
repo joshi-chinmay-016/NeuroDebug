@@ -2,7 +2,7 @@
 
 from typing import ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SymbolicIssue(BaseModel):
@@ -49,6 +49,8 @@ class TestResultResponse(BaseModel):
     duration: float = Field(..., description="Test duration in seconds")
     error_message: str | None = Field(None, description="Error message if failed")
 
+    model_config = ConfigDict(extra="ignore")
+
 
 class TestSuiteResultResponse(BaseModel):
     """Response model for test suite results."""
@@ -63,6 +65,8 @@ class TestSuiteResultResponse(BaseModel):
     )
     output: str = Field(..., description="Test output")
     error: str | None = Field(None, description="Error if test execution failed")
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class VerificationEvidenceResponse(BaseModel):
@@ -95,8 +99,8 @@ class VerificationReportResponse(BaseModel):
         ..., description="Verification evidence"
     )
 
-    class Config:
-        json_schema_extra: ClassVar[dict] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "verification_status": "VERIFIED",
                 "execution_summary": "Verification Status: VERIFIED\nOriginal Code: FAILED\nPatched Code: SUCCESS\nTests: 3 passed, 0 failed, 0 skipped\nOriginal execution time: 0.001s\nPatched execution time: 0.002s",
@@ -139,7 +143,8 @@ class VerificationReportResponse(BaseModel):
                     },
                 },
             }
-        }  # type: ignore[assignment]
+        }
+    )
 
 
 class DebugResponse(BaseModel):
@@ -166,8 +171,8 @@ class DebugResponse(BaseModel):
         None, description="Usage information (remaining requests, tier, etc.)"
     )
 
-    class Config:
-        json_schema_extra: ClassVar[dict] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "detected_issues": [
                     {
@@ -196,7 +201,8 @@ class DebugResponse(BaseModel):
                     "validation_duration_ms": 5,
                 },
             }
-        }  # type: ignore[assignment]
+        }
+    )
 
 
 class HealthResponse(BaseModel):

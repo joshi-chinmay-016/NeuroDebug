@@ -148,16 +148,14 @@ class DebugPipeline:
         validation_result = "not_attempted"
         verification_report = None
 
-        if (
-            rule_issues
-            and resolved_api_key
-            and Config.validate_api_key(resolved_api_key)
-        ):
-            logger.info("Step 4: Generating patch")
+        if rule_issues or ast_result.get("syntax_error"):
+            logger.info("Step 4: Generating candidate patch")
             try:
                 patch_start = time.time()
                 candidate_patch = await self.patch_generator.generate_patch(
-                    code=code, symbolic_issues=rule_issues, api_key=resolved_api_key
+                    code=code,
+                    symbolic_issues=rule_issues,
+                    api_key=resolved_api_key if resolved_api_key and Config.validate_api_key(resolved_api_key) else None,
                 )
                 patch_duration = (time.time() - patch_start) * 1000
                 metadata["patch_generation_duration_ms"] = round(patch_duration, 2)
@@ -174,13 +172,13 @@ class DebugPipeline:
 
                 # Step 5: Verification (if patch was generated and valid)
                 if candidate_patch.validation_passed:
-                    logger.info("Step 5: Running verification")
+                    logger.info("Step 5: Running verification engine")
                     try:
                         verif_start = time.time()
                         verification_report = self.verification_engine.verify_patch(
                             original_code=code,
                             patched_code=candidate_patch.patched_code,
-                            test_code=None,  # Tests not generated yet
+                            test_code=None,
                         )
                         verif_duration = (time.time() - verif_start) * 1000
                         metadata["verification_duration_ms"] = round(verif_duration, 2)
@@ -200,13 +198,11 @@ class DebugPipeline:
                             verification_report
                         )
 
-                    # Verification is an optional stage. Catch unexpected exceptions at the
-                    # pipeline boundary so the request can still complete with a partial response.
                     except Exception as exc:  # noqa: BLE001
                         logger.warning("Verification failed: %s", exc)
                         metadata["verification_error"] = str(exc)
 
-            except (LLMError, PatchGenerationError) as exc:
+            except Exception as exc:
                 logger.warning("Patch generation failed: %s", exc)
                 patch_status = "failed"
                 validation_result = "failed"

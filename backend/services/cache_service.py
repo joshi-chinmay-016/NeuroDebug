@@ -1,57 +1,37 @@
 """
-Redis Cache Service
+In-Memory Cache Service (Zero External Redis Dependency).
 
-Provides caching functionality with deterministic cache keys and graceful fallback.
+Provides deterministic in-memory caching with TTL and thread-safe dict storage.
+PostgreSQL remains the primary and authoritative persistence layer for all SaaS state.
 """
 
 import hashlib
 import json
+import time
 from typing import Any
 
-import redis.asyncio as redis
-from utils.config import Config
 from utils.logging import get_logger
 
 logger = get_logger("neurodebug.cache_service")
 
 
 class CacheService:
-    """Redis cache service with deterministic keys and graceful fallback."""
+    """In-memory cache service with deterministic keys and TTL support."""
 
     def __init__(self):
-        """Initialize cache service."""
-        self.redis_client: redis.Redis | None = None
-        self.enabled = Config.CACHE_ENABLED
-        self._initialized = False
+        """Initialize in-memory cache service."""
+        self._cache: dict[str, tuple[Any, float]] = {}  # key -> (value, expiry_timestamp)
+        self.enabled = True
+        self._initialized = True
 
     async def initialize(self) -> None:
-        """Initialize Redis connection."""
-        if not self.enabled:
-            logger.info("Caching is disabled")
-            return
-
-        try:
-            self.redis_client = redis.from_url(
-                Config.REDIS_URL,
-                encoding="utf-8",
-                decode_responses=True,
-            )
-            # Test connection
-            await self.redis_client.ping()
-            self._initialized = True
-            logger.info("Redis cache service initialized")
-        except Exception as exc:
-            logger.warning(
-                "Failed to initialize Redis cache: %s. Caching disabled.", exc
-            )
-            self.enabled = False
-            self.redis_client = None
+        """Initialize cache (no-op for in-memory)."""
+        logger.info("In-memory cache service initialized (Zero Redis dependency)")
 
     async def close(self) -> None:
-        """Close Redis connection."""
-        if self.redis_client:
-            await self.redis_client.close()
-            logger.info("Redis cache service closed")
+        """Close cache service and clear in-memory cache."""
+        self._cache.clear()
+        logger.info("In-memory cache service cleared")
 
     def _generate_key(self, prefix: str, **kwargs: Any) -> str:
         """
@@ -64,133 +44,90 @@ class CacheService:
         Returns:
             Deterministic cache key string.
         """
-        # Sort kwargs for deterministic ordering
         sorted_items = sorted(kwargs.items())
-        key_string = f"{prefix}:{json.dumps(sorted_items, sort_keys=True)}"
-        # Hash to create a consistent, short key
+        key_string = f"{prefix}:{json.dumps(sorted_items, sort_keys=True, default=str)}"
         return hashlib.sha256(key_string.encode()).hexdigest()[:32]
 
     async def get(self, prefix: str, **kwargs: Any) -> Any | None:
         """
-        Get value from cache.
+        Get value from in-memory cache.
 
         Args:
             prefix: Key prefix.
             **kwargs: Parameters for key generation.
 
         Returns:
-            Cached value or None if not found or cache disabled.
+            Cached value or None if not found or expired.
         """
-        if not self.enabled or not self._initialized:
+        if not self.enabled:
             return None
 
-        try:
-            key = self._generate_key(prefix, **kwargs)
-            value = await self.redis_client.get(key)
-            if value:
-                logger.debug("Cache hit: %s", key[:16])
-                return json.loads(value)
-            logger.debug("Cache miss: %s", key[:16])
+        key = self._generate_key(prefix, **kwargs)
+        entry = self._cache.get(key)
+        if entry is None:
             return None
-        except Exception as exc:
-            logger.warning("Cache get failed: %s", exc)
+
+        val, expiry = entry
+        if time.time() > expiry:
+            del self._cache[key]
             return None
+
+        return val
 
     async def set(
-        self, prefix: str, value: Any, ttl: int | None = None, **kwargs: Any
+        self, prefix: str, value: Any, ttl: int | None = 3600, **kwargs: Any
     ) -> bool:
         """
-        Set value in cache.
+        Set value in in-memory cache with TTL.
 
         Args:
             prefix: Key prefix.
-            value: Value to cache (must be JSON serializable).
-            ttl: Time to live in seconds. Defaults to Config.CACHE_TTL_SECONDS.
+            value: Value to cache.
+            ttl: Time to live in seconds (default: 3600).
             **kwargs: Parameters for key generation.
 
         Returns:
-            True if successful, False otherwise.
+            True if cached successfully.
         """
-        if not self.enabled or not self._initialized:
+        if not self.enabled:
             return False
 
-        try:
-            key = self._generate_key(prefix, **kwargs)
-            ttl = ttl or Config.CACHE_TTL_SECONDS
-            serialized = json.dumps(value)
-            await self.redis_client.setex(key, ttl, serialized)
-            logger.debug("Cache set: %s (TTL: %ds)", key[:16], ttl)
-            return True
-        except Exception as exc:
-            logger.warning("Cache set failed: %s", exc)
-            return False
+        key = self._generate_key(prefix, **kwargs)
+        expiry = time.time() + (ttl or 3600)
+        self._cache[key] = (value, expiry)
+        return True
 
     async def delete(self, prefix: str, **kwargs: Any) -> bool:
         """
-        Delete value from cache.
+        Delete key from in-memory cache.
 
         Args:
             prefix: Key prefix.
             **kwargs: Parameters for key generation.
 
         Returns:
-            True if successful, False otherwise.
+            True if deleted.
         """
-        if not self.enabled or not self._initialized:
-            return False
-
-        try:
-            key = self._generate_key(prefix, **kwargs)
-            await self.redis_client.delete(key)
-            logger.debug("Cache delete: %s", key[:16])
+        key = self._generate_key(prefix, **kwargs)
+        if key in self._cache:
+            del self._cache[key]
             return True
-        except Exception as exc:
-            logger.warning("Cache delete failed: %s", exc)
-            return False
+        return False
 
-    async def delete_pattern(self, pattern: str) -> int:
+    async def clear_prefix(self, prefix: str) -> int:
         """
-        Delete all keys matching a pattern.
+        Clear all keys matching prefix.
 
         Args:
-            pattern: Redis key pattern (e.g., "user:*").
+            prefix: Key prefix.
 
         Returns:
-            Number of keys deleted.
+            Number of cleared keys.
         """
-        if not self.enabled or not self._initialized:
-            return 0
-
-        try:
-            keys = []
-            async for key in self.redis_client.scan_iter(match=pattern):
-                keys.append(key)
-            if keys:
-                await self.redis_client.delete(*keys)
-                logger.info("Deleted %d keys matching pattern: %s", len(keys), pattern)
-            return len(keys)
-        except Exception as exc:
-            logger.warning("Cache delete pattern failed: %s", exc)
-            return 0
-
-    async def clear(self) -> bool:
-        """
-        Clear all cached values.
-
-        Returns:
-            True if successful, False otherwise.
-        """
-        if not self.enabled or not self._initialized:
-            return False
-
-        try:
-            await self.redis_client.flushdb()
-            logger.info("Cache cleared")
-            return True
-        except Exception as exc:
-            logger.warning("Cache clear failed: %s", exc)
-            return False
+        count = len(self._cache)
+        self._cache.clear()
+        return count
 
 
-# Global cache service instance
+# Singleton instance
 cache_service = CacheService()

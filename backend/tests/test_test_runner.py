@@ -3,11 +3,11 @@
 from subprocess import CompletedProcess, TimeoutExpired
 from unittest.mock import patch
 
-from services.test_runner import TestRunner
+from services.test_runner import PytestRunner
 
 
 def test_run_tests_parses_successful_pytest_output():
-    runner = TestRunner(timeout=5.0)
+    runner = PytestRunner(timeout=5.0)
 
     completed_process = CompletedProcess(
         args=["pytest"],
@@ -30,7 +30,7 @@ def test_run_tests_parses_successful_pytest_output():
 
 
 def test_run_tests_timeout_is_reported():
-    runner = TestRunner(timeout=5.0)
+    runner = PytestRunner(timeout=5.0)
 
     with patch(
         "services.test_runner.subprocess.run",

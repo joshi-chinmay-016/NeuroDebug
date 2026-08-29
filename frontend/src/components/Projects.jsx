@@ -1,32 +1,37 @@
-import { motion, AnimatePresence } from 'framer-motion'
-import { FolderPlus, MoreVertical, Archive, Trash2, Clock, CheckCircle, AlertCircle, Search } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { FolderGit2, Plus, ArrowRight, Search, X, Trash2, CheckCircle2, AlertCircle, Lock, ShieldCheck } from 'lucide-react'
+import StatusDot from './StatusDot'
 import workspaceService from '../services/workspaceService'
-import { useNotification } from '../contexts/NotificationContext'
-import { CardSkeleton } from './Skeleton'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Projects() {
-  const { isAuthenticated } = useAuth()
-  const { success, error: showError } = useNotification()
+  const { user, isAuthenticated } = useAuth()
+  const [isCreating, setIsCreating] = useState(false)
+  const [projectName, setProjectName] = useState('')
+  const [projectDesc, setProjectDesc] = useState('')
+  const [search, setSearch] = useState('')
   const [projects, setProjects] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newProjectName, setNewProjectName] = useState('')
-  const [menuOpen, setMenuOpen] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const loadProjects = async () => {
-    if (!isAuthenticated) return
-    setIsLoading(true)
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
     try {
-      const data = await workspaceService.getProjects()
-      setProjects(data)
+      setLoading(true)
+      const data = await workspaceService.listProjects(0, 50)
+      if (data && Array.isArray(data)) {
+        setProjects(data)
+      }
     } catch (err) {
-      showError('Failed to load projects')
-      console.error('Failed to load projects:', err)
+      console.warn('Could not load projects:', err)
+      setError('Unable to load projects from server')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
@@ -34,334 +39,244 @@ export default function Projects() {
     loadProjects()
   }, [isAuthenticated])
 
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return
+  const handleCreateProject = async (e) => {
+    e.preventDefault()
+    if (!isAuthenticated || !projectName.trim()) return
 
     try {
-      const project = await workspaceService.createProject(newProjectName)
-      setProjects([...projects, project])
-      setNewProjectName('')
-      setShowCreateModal(false)
-      success('Project created successfully')
+      const created = await workspaceService.createProject(projectName.trim(), projectDesc.trim())
+      setProjects([created, ...projects])
+      setProjectName('')
+      setProjectDesc('')
+      setIsCreating(false)
     } catch (err) {
-      showError('Failed to create project')
-      console.error('Failed to create project:', err)
+      console.error('Error creating project:', err)
+      setError(err.message || 'Failed to create project')
     }
   }
 
-  const handleArchiveProject = async (projectId) => {
+  const handleDeleteProject = async (id) => {
     try {
-      await workspaceService.archiveProject(projectId)
-      setProjects(projects.map(p => p.id === projectId ? { ...p, is_archived: true } : p))
-      setMenuOpen(null)
-      success('Project archived')
+      await workspaceService.archiveProject(id)
+      setProjects(projects.filter((p) => p.id !== id))
     } catch (err) {
-      showError('Failed to archive project')
-      console.error('Failed to archive project:', err)
+      console.error('Error archiving project:', err)
     }
   }
 
-  const handleDeleteProject = async (projectId) => {
-    try {
-      await workspaceService.deleteProject(projectId)
-      setProjects(projects.filter(p => p.id !== projectId))
-      setMenuOpen(null)
-      success('Project deleted')
-    } catch (err) {
-      showError('Failed to delete project')
-      console.error('Failed to delete project:', err)
-    }
-  }
-
-  const handleRestoreProject = async (projectId) => {
-    try {
-      await workspaceService.restoreProject(projectId)
-      setProjects(projects.map(p => p.id === projectId ? { ...p, is_archived: false } : p))
-      setMenuOpen(null)
-      success('Project restored')
-    } catch (err) {
-      showError('Failed to restore project')
-      console.error('Failed to restore project:', err)
-    }
-  }
-
-  const filteredProjects = projects.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProjects = projects.filter((p) =>
+    (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (p.description || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: 'spring',
-        stiffness: 100,
-        damping: 12,
-      },
-    },
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="container py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center py-12"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-          >
-            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          </motion.div>
-          <h2 className="text-2xl font-semibold mb-2">Authentication Required</h2>
-          <p className="text-muted-foreground">Please log in to access your projects.</p>
-        </motion.div>
-      </div>
-    )
-  }
-
   return (
-    <div className="container py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="mb-8"
-      >
-        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your debugging projects and organize your work
-        </p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="flex items-center justify-between mb-6"
-      >
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 rounded-lg border border-border/40 bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 w-64 transition-all"
-          />
+    <div className="space-y-8">
+      {/* Top bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display font-bold text-2xl text-[var(--ink)] tracking-tight">
+            Developer Projects
+          </h1>
+          <p className="text-xs font-mono text-[var(--dim)] mt-1">
+            Organize debugging sessions, codebase snippets, and verification workspaces
+          </p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <FolderPlus className="h-4 w-4" />
-          New Project
-        </motion.button>
-      </motion.div>
 
-      {isLoading ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-        >
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </motion.div>
-      ) : filteredProjects.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center py-12"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+        {isAuthenticated && (
+          <button
+            onClick={() => setIsCreating(!isCreating)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--ink)] text-[var(--bg)] font-display font-bold text-xs hover:bg-white transition-all duration-150 shadow-sm"
           >
-            <FolderPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          </motion.div>
-          <h2 className="text-xl font-semibold mb-2">No projects yet</h2>
-          <p className="text-muted-foreground mb-4">Create your first project to get started</p>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <FolderPlus className="h-4 w-4" />
-            Create Project
-          </motion.button>
-        </motion.div>
-      ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-        >
-          {filteredProjects.map((project) => (
-            <motion.div
-              key={project.id}
-              variants={itemVariants}
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              className="relative rounded-xl border border-border/40 bg-card p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            {isCreating ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            <span>{isCreating ? 'Cancel' : 'New Project'}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Guest Lock Banner */}
+      {!isAuthenticated && (
+        <div className="card-hover rounded-2xl p-8 border border-[var(--line)] bg-[var(--surface-1)] space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--green)]/15 border border-[var(--green)]/30 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-[var(--green)]" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-base text-[var(--ink)]">
+                Project Workspaces Require an Account
+              </h3>
+              <p className="text-xs font-mono text-[var(--dim)] mt-0.5">
+                Guest sessions cannot create persistent workspaces. Create a free account to organize codebases and save sessions.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono">
+              <div className="font-bold text-[var(--ink)] mb-1">5 Daily Verifications</div>
+              <div className="text-[var(--dim)]">Upgraded from 1 request/day guest limit</div>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono">
+              <div className="font-bold text-[var(--ink)] mb-1">Isolated Workspaces</div>
+              <div className="text-[var(--dim)]">Multi-file project grouping and tags</div>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono">
+              <div className="font-bold text-[var(--ink)] mb-1">Full Audit Replay</div>
+              <div className="text-[var(--dim)]">Revisit past diffs and execution evidence</div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center gap-3">
+            <Link
+              to="/register"
+              className="px-5 py-2.5 rounded-lg bg-[var(--ink)] text-[var(--bg)] font-display font-bold text-xs hover:bg-white transition-all flex items-center gap-2"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{project.name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {project.session_count || 0} sessions
-                  </p>
-                </div>
-                <div className="relative">
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
-                    className="p-1 rounded hover:bg-muted transition-colors"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </motion.button>
-                  <AnimatePresence>
-                    {menuOpen === project.id && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-8 w-48 bg-background border border-border/40 rounded-lg shadow-lg z-10 overflow-hidden"
-                      >
-                        {!project.is_archived ? (
-                          <>
-                            <motion.button
-                              whileHover={{ x: 4 }}
-                              onClick={() => handleArchiveProject(project.id)}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 transition-colors"
-                            >
-                              <Archive className="h-4 w-4" />
-                              Archive
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ x: 4 }}
-                              onClick={() => handleDeleteProject(project.id)}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 text-destructive transition-colors"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete
-                            </motion.button>
-                          </>
-                        ) : (
-                          <motion.button
-                            whileHover={{ x: 4 }}
-                            onClick={() => handleRestoreProject(project.id)}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 transition-colors"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Restore
-                          </motion.button>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>Last updated {project.last_used_at ? new Date(project.last_used_at).toLocaleDateString() : 'Never'}</span>
-              </div>
-              {project.is_archived && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground"
-                >
-                  <Archive className="h-3 w-3" />
-                  Archived
-                </motion.div>
-              )}
-            </motion.div>
-          ))}
-        </motion.div>
+              <span>Create Free Account</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+
+            <Link
+              to="/login"
+              className="px-4 py-2.5 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono text-[var(--ink)] hover:border-[var(--border-strong)] transition-all"
+            >
+              <span>Sign In</span>
+            </Link>
+          </div>
+        </div>
       )}
 
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={() => {
-              setShowCreateModal(false)
-              setNewProjectName('')
-            }}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              transition={{ duration: 0.2 }}
-              className="bg-background rounded-xl p-6 w-full max-w-md shadow-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-xl font-semibold mb-4">Create New Project</h2>
+      {/* Inline Form Expansion (Authenticated Only) */}
+      {isAuthenticated && isCreating && (
+        <form
+          onSubmit={handleCreateProject}
+          className="card-hover rounded-xl p-6 border-l-4 border-l-[var(--green)] space-y-4 page-enter"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-bold text-sm text-[var(--ink)]">
+              Create New Workspace Project
+            </h3>
+            <span className="text-[11px] font-mono text-[var(--dim)]">
+              Secure Isolated Tenant
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-mono text-[var(--dim)] mb-1">
+                Project Name
+              </label>
               <input
                 type="text"
-                placeholder="Project name"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-border/40 bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 mb-4 transition-all"
-                autoFocus
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="e.g., Auth & Security Gateway"
+                required
+                className="w-full px-3 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-[var(--border-strong)]"
               />
-              <div className="flex justify-end gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setShowCreateModal(false)
-                    setNewProjectName('')
-                  }}
-                  className="px-4 py-2 rounded-lg border border-border/40 hover:bg-muted transition-colors"
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--dim)] mb-1">
+                Description (Optional)
+              </label>
+              <textarea
+                value={projectDesc}
+                onChange={(e) => setProjectDesc(e.target.value)}
+                placeholder="Brief summary of codebase scope..."
+                rows={2}
+                className="w-full px-3 py-2 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-[var(--border-strong)] resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsCreating(false)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-mono text-[var(--dim)] hover:text-[var(--ink)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-1.5 rounded-lg bg-[var(--ink)] text-[var(--bg)] font-display font-bold text-xs hover:bg-white transition-all"
+            >
+              Save Project
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Authenticated Projects View */}
+      {isAuthenticated && (
+        <>
+          {/* Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter projects by title or description..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-[var(--surface-1)] border border-[var(--line)] text-xs font-mono text-[var(--ink)] placeholder-[var(--dim)] focus:outline-none focus:border-[var(--border-strong)]"
+            />
+            <Search className="w-4 h-4 text-[var(--dim)] absolute left-3 top-2.5" />
+          </div>
+
+          {/* Project Cards Grid */}
+          {loading ? (
+            <div className="p-8 text-center font-mono text-xs text-[var(--dim)] animate-pulse">
+              Loading workspace projects...
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="p-8 text-center font-mono text-xs text-[var(--dim)] bg-[var(--surface-1)] border border-[var(--line)] rounded-xl">
+              No projects found. Click "New Project" to create your first workspace.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {filteredProjects.map((proj) => (
+                <div
+                  key={proj.id}
+                  className="card-hover rounded-xl p-5 flex flex-col justify-between space-y-4 group"
                 >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleCreateProject}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Create
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--surface-2)] border border-[var(--line)] flex items-center justify-center">
+                          <FolderGit2 className="w-4 h-4 text-[var(--ink)]" />
+                        </div>
+                        <div>
+                          <h3 className="font-display font-bold text-sm text-[var(--ink)] group-hover:text-white transition-colors">
+                            {proj.name}
+                          </h3>
+                          <span className="text-[10px] font-mono text-[var(--dim)]">
+                            Created {new Date(proj.created_at || Date.now()).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteProject(proj.id)}
+                        className="text-[var(--dim)] hover:text-[var(--red)] transition-colors p-1"
+                        title="Archive Project"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-[var(--dim)] font-mono mt-3 leading-relaxed">
+                      {proj.description || 'No description provided.'}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between text-xs font-mono text-[var(--dim)]">
+                    <span>UUID: {proj.id.slice(0, 8)}...</span>
+                    <span className="text-[var(--green)]">Active Workspace</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

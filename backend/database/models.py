@@ -17,15 +17,16 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     JSON,
+    Uuid,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.config import Config
 
 from database.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-# Use JSON for SQLite, JSONB for PostgreSQL
-JsonType = JSONB if Config.DATABASE_URL.startswith("postgresql") else JSON
+# Cross-dialect JSON: Uses JSONB in PostgreSQL, JSON in SQLite (for unit tests)
+JsonType = JSON().with_variant(JSONB, "postgresql")
 
 __all__ = [
     "CandidatePatch",
@@ -55,8 +56,10 @@ class VerificationStatus(str, Enum):
     """Verification status enumeration."""
 
     VERIFIED = "verified"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    ERROR = "error"
     UNVERIFIED = "unverified"
-    PENDING = "pending"
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -65,27 +68,27 @@ class VerificationStatus(str, Enum):
 
 
 class SubscriptionPlan(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
-    """Subscription plan configuration."""
+    """Subscription plan definition model."""
 
     __tablename__ = "subscription_plans"
 
-    name: Mapped[str] = mapped_column(
-        String(50), unique=True, nullable=False, index=True
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    tier: Mapped[str] = mapped_column(
+        String(20), unique=True, nullable=False, index=True
     )
-    tier: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     daily_request_limit: Mapped[int] = mapped_column(Integer, nullable=False)
-    max_projects: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_projects: Mapped[int] = mapped_column(Integer, nullable=False)
     features: Mapped[dict] = mapped_column(JsonType, nullable=False, default=dict)
-    price_monthly: Mapped[int | None] = mapped_column(
-        Integer, nullable=True
-    )  # in cents
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False, index=True
-    )
+    price_monthly: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )  # In cents
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
     limits: Mapped[list["SubscriptionLimit"]] = relationship(
-        "SubscriptionLimit", back_populates="plan", cascade="all, delete-orphan"
+        "SubscriptionLimit",
+        back_populates="plan",
+        cascade="all, delete-orphan",
     )
     users: Mapped[list["User"]] = relationship(
         "User", back_populates="subscription_plan", cascade="all, delete-orphan"
@@ -98,7 +101,7 @@ class SubscriptionLimit(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "subscription_limits"
 
     plan_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("subscription_plans.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -132,7 +135,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_plan_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("subscription_plans.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -165,7 +168,7 @@ class UserProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "user_profiles"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
@@ -203,7 +206,7 @@ class Project(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "projects"
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
@@ -232,14 +235,14 @@ class DebugSession(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "debug_sessions"
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
     session_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     project_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("projects.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -279,7 +282,7 @@ class CandidatePatch(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin)
     __tablename__ = "candidate_patches"
 
     debug_session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("debug_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -315,13 +318,13 @@ class VerificationReport(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMi
     __tablename__ = "verification_reports"
 
     debug_session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("debug_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     candidate_patch_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("candidate_patches.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -354,7 +357,7 @@ class UsageLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "usage_logs"
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,

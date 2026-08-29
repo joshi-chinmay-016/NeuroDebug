@@ -83,32 +83,40 @@ async def debug_code(request: Request, response: Response, debug_request: DebugR
 
     async with get_db_session() as session:
         try:
-            # Initialize services
+            # Initialize services and repositories
             session_service = SessionService(session)
             usage_limit_service = UsageLimitService(session)
             debug_service = DebugService()
+            debug_session_repo = DebugSessionRepository(session)
+
+            # Check if request has authenticated JWT bearer user
+            from middleware.auth import get_current_user_optional
+            current_user = await get_current_user_optional(request)
+            user_id = current_user["user_id"] if current_user else None
 
             # Get or create session
             session_id, tier = await session_service.get_or_create_session(
-                request, response
+                request, response, user_id=user_id
             )
 
-            # Check usage limits
+            # Check usage limits server-side
             try:
                 _allowed, current_usage, limit = await session_service.check_rate_limit(
-                    session_id=session_id, tier=tier
+                    session_id=session_id, tier=tier, user_id=user_id
                 )
                 logger.info(
-                    "Usage check passed: session_id=%s tier=%s usage=%d/%d",
+                    "Usage check passed: session_id=%s user_id=%s tier=%s usage=%d/%d",
                     session_id,
+                    user_id,
                     tier,
                     current_usage,
                     limit,
                 )
             except UsageLimitExceededError as exc:
                 logger.warning(
-                    "Usage limit exceeded: session_id=%s tier=%s usage=%d/%d",
+                    "Usage limit exceeded: session_id=%s user_id=%s tier=%s usage=%d/%d",
                     session_id,
+                    user_id,
                     tier,
                     exc.current_usage,
                     exc.limit,
@@ -117,38 +125,65 @@ async def debug_code(request: Request, response: Response, debug_request: DebugR
                     status_code=429,
                     detail={
                         "error": "usage_limit_exceeded",
-                        "message": f"Daily usage limit exceeded: {exc.current_usage}/{exc.limit} requests",
+                        "message": f"Daily verification quota reached ({exc.current_usage}/{exc.limit} used). Upgrade to Pro for high-throughput verifications.",
                         "tier": exc.tier,
                         "limit": exc.limit,
                         "current_usage": exc.current_usage,
+                        "upgrade_url": "/pricing",
                     },
                 )
 
-            # Execute debug pipeline
+            # Execute debug pipeline with Groq LLM and verification
             start_time = time.time()
             result = await debug_service.debug_code(
                 code=code, api_key=debug_request.api_key
             )
             execution_time_ms = (time.time() - start_time) * 1000
 
-            # Record usage
+            # Record usage in PostgreSQL
             verification_status = None
             if result.verification_report:
                 verification_status = result.verification_report.verification_status
 
             await usage_limit_service.record_usage(
                 session_id=session_id,
+                user_id=user_id,
                 tier=tier,
                 execution_time_ms=execution_time_ms,
                 verification_status=verification_status,
-                patch_success=result.patch is not None,
+                patch_success=result.candidate_patch is not None,
                 pipeline_runtime_ms=result.metadata.get("pipeline_duration_ms"),
                 llm_runtime_ms=result.metadata.get("llm_duration_ms"),
             )
 
+            # Persist debug session in PostgreSQL
+            try:
+                await debug_session_repo.create_debug_session(
+                    code=code,
+                    session_id=session_id,
+                    user_id=user_id,
+                    error_type=result.error_type,
+                    confidence_score=int((result.confidence_score or 0.8) * 100),
+                    pipeline_duration_ms=int(execution_time_ms),
+                    candidate_patch={
+                        "original_code": result.candidate_patch.original_code,
+                        "patched_code": result.candidate_patch.patched_code,
+                        "diff": result.candidate_patch.unified_diff,
+                        "validation_passed": result.candidate_patch.validation_passed,
+                        "explanation": result.explanation,
+                    } if result.candidate_patch else None,
+                    verification_report={
+                        "verification_status": result.verification_report.verification_status,
+                        "execution_passed": result.verification_report.evidence.patched_code_execution.success if result.verification_report.evidence else False,
+                        "execution_summary": result.verification_report.execution_summary,
+                    } if result.verification_report else None,
+                )
+            except Exception as db_exc:
+                logger.warning("Could not persist debug session audit log: %s", db_exc)
+
             # Add usage info to response
             remaining = await usage_limit_service.get_remaining_requests(
-                session_id=session_id, tier=tier
+                session_id=session_id, user_id=user_id, tier=tier
             )
             result.usage_info = {
                 "remaining_requests": remaining,
@@ -158,9 +193,11 @@ async def debug_code(request: Request, response: Response, debug_request: DebugR
             }
 
             logger.info(
-                "Debug request completed: session_id=%s tier=%s execution_time=%.2fms",
+                "Debug request completed: session_id=%s tier=%s remaining=%d/%d execution_time=%.2fms",
                 session_id,
                 tier,
+                remaining,
+                limit,
                 execution_time_ms,
             )
 

@@ -13,14 +13,22 @@ venv/
 .venv/
 env/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+backend/*.db
+
 # Environment / secrets
 .env
+.env.*
 !.env.example
 
 # Test / coverage
 .pytest_cache/
 htmlcov/
 .coverage
+*.log
 
 # Node / frontend
 node_modules/
@@ -39,5 +47,10 @@ Thumbs.db
 .idea/
 *.swp
 
+# Linters / Cache
 .ruff_cache/*
-.ruff_cache
+.ruff_cache/
+
+# Local wrapper scripts
+powershell.cmd
+**/powershell.cmd

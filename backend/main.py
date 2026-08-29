@@ -24,7 +24,7 @@ from routes import (
 )
 from services.cache_service import cache_service
 from utils.config import Config
-from utils.logging import configure_logging, get_logger
+from utils.logging import configure_logging, get_logger, set_request_id
 
 # ──────────────────────────────────────────────────────────────────
 # Logging Configuration
@@ -91,18 +91,18 @@ async def log_requests(request: Request, call_next):
     # Add request ID if not present
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
     request.state.request_id = request_id
+    set_request_id(request_id)
 
     start = time.time()
     response = await call_next(request)
     duration = round(time.time() - start, 4)
 
     logger.info(
-        "%s %s → %s (%.4fs) [request_id=%s]",
+        "%s %s → %s (%.4fs)",
         request.method,
         request.url.path,
         response.status_code,
         duration,
-        request_id,
     )
 
     # Add request ID to response headers

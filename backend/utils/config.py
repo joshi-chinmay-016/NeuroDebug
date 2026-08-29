@@ -38,12 +38,11 @@ class Config:
     SESSION_EXPIRY_HOURS: int = int(os.getenv("SESSION_EXPIRY_HOURS", "24"))
 
     # Usage Limits (configurable via database, these are defaults)
-    DEFAULT_GUEST_LIMIT: int = int(os.getenv("DEFAULT_GUEST_LIMIT", "3"))
+    DEFAULT_GUEST_LIMIT: int = int(os.getenv("DEFAULT_GUEST_LIMIT", "1"))
     DEFAULT_FREE_LIMIT: int = int(os.getenv("DEFAULT_FREE_LIMIT", "5"))
     DEFAULT_PRO_LIMIT: int = int(os.getenv("DEFAULT_PRO_LIMIT", "20"))
 
-    # Redis Configuration
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    # In-Memory Cache Configuration
     CACHE_TTL_SECONDS: int = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
     CACHE_ENABLED: bool = os.getenv("CACHE_ENABLED", "true").lower() == "true"
 

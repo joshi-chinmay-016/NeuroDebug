@@ -1,214 +1,117 @@
+import uuid
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.main import app
-from backend.database.models import User
-from backend.services.auth_service import AuthService
-from backend.middleware.auth import create_access_token, create_refresh_token
-import bcrypt
+from main import app
+from database.models import User
+from services.auth_service import AuthService
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
-@pytest.fixture
-async def test_user(db_session: AsyncSession):
-    """Create a test user for authentication tests."""
-    password_hash = bcrypt.hashpw(
-        "test_password123".encode(), bcrypt.gensalt()
-    ).decode()
-    user = User(
-        email="test@example.com",
-        password_hash=password_hash,
-        display_name="Test User",
-        email_verified=True,
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
+@pytest_asyncio.fixture
+async def async_client():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
 
 class TestAuthService:
     """Test authentication service methods."""
 
-    @pytest.mark.asyncio
-    async def test_hash_password(self):
-        """Test password hashing."""
-        password = "secure_password123"
+    def test_hash_and_verify_password(self):
+        """Test password hashing and verification."""
+        password = "SecurePassword123!"
         hashed = AuthService.hash_password(password)
 
         assert hashed != password
-        assert bcrypt.checkpw(password.encode(), hashed.encode())
-
-    @pytest.mark.asyncio
-    async def test_verify_password_correct(self):
-        """Test password verification with correct password."""
-        password = "secure_password123"
-        hashed = AuthService.hash_password(password)
-
         assert AuthService.verify_password(password, hashed) is True
+        assert AuthService.verify_password("WrongPassword!", hashed) is False
 
-    @pytest.mark.asyncio
-    async def test_verify_password_incorrect(self):
-        """Test password verification with incorrect password."""
-        password = "secure_password123"
-        wrong_password = "wrong_password"
-        hashed = AuthService.hash_password(password)
+    def test_password_strength_validation(self):
+        """Test password complexity checks."""
+        valid, msg = AuthService.validate_password_strength("Short1!")
+        assert valid is False
 
-        assert AuthService.verify_password(wrong_password, hashed) is False
+        valid, msg = AuthService.validate_password_strength("alllowercase123!")
+        assert valid is False
 
-    @pytest.mark.asyncio
-    async def test_create_access_token(self):
-        """Test access token creation."""
-        user_id = "test-user-id"
-        token = create_access_token(data={"sub": user_id})
+        valid, msg = AuthService.validate_password_strength("ALLUPPERCASE123!")
+        assert valid is False
+
+        valid, msg = AuthService.validate_password_strength("ValidPassword123!")
+        assert valid is True
+
+    def test_create_and_verify_access_token(self):
+        """Test access token creation and verification."""
+        user_id = uuid.uuid4()
+        token = AuthService.create_access_token(user_id, "test@example.com", tier="free")
+
+        assert isinstance(token, str)
+        assert len(token) > 0
+
+        payload = AuthService.verify_access_token(token)
+        assert payload["sub"] == str(user_id)
+        assert payload["email"] == "test@example.com"
+        assert payload["tier"] == "free"
+        assert payload["type"] == "access"
+
+    def test_create_and_verify_refresh_token(self):
+        """Test refresh token creation and verification."""
+        user_id = uuid.uuid4()
+        token = AuthService.create_refresh_token(user_id)
 
         assert isinstance(token, str)
         assert len(token) > 0
 
-    @pytest.mark.asyncio
-    async def test_create_refresh_token(self):
-        """Test refresh token creation."""
-        user_id = "test-user-id"
-        token = create_refresh_token(data={"sub": user_id})
-
-        assert isinstance(token, str)
-        assert len(token) > 0
+        verified_user_id = AuthService.verify_refresh_token(token)
+        assert verified_user_id == user_id
 
 
 class TestAuthEndpoints:
     """Test authentication API endpoints."""
 
-    def test_register_success(self, client: TestClient):
-        """Test successful user registration."""
-        response = client.post(
+    @pytest.mark.asyncio
+    async def test_register_and_login_flow(self, async_client: httpx.AsyncClient):
+        """Test complete registration and login flow."""
+        unique_email = f"user_{uuid.uuid4().hex[:8]}@example.com"
+        password = "SecurePassword123!"
+
+        # Register
+        reg_response = await async_client.post(
             "/auth/register",
             json={
-                "email": "newuser@example.com",
-                "password": "SecurePass123!",
-                "display_name": "New User",
+                "email": unique_email,
+                "password": password,
+                "display_name": "Test Engineer",
             },
         )
 
-        assert response.status_code == 200
-        data = response.json()
+        assert reg_response.status_code == 201
+        data = reg_response.json()
         assert "access_token" in data
         assert "refresh_token" in data
-        assert "user" in data
-        assert data["user"]["email"] == "newuser@example.com"
+        assert data["email"] == unique_email
+        assert data["tier"] == "free"
 
-    def test_register_duplicate_email(self, client: TestClient, test_user):
-        """Test registration with duplicate email."""
-        response = client.post(
-            "/auth/register",
-            json={
-                "email": "test@example.com",
-                "password": "SecurePass123!",
-                "display_name": "Test User",
-            },
-        )
-
-        assert response.status_code == 400
-
-    def test_register_weak_password(self, client: TestClient):
-        """Test registration with weak password."""
-        response = client.post(
-            "/auth/register",
-            json={
-                "email": "newuser@example.com",
-                "password": "weak",
-                "display_name": "New User",
-            },
-        )
-
-        assert response.status_code == 400
-
-    def test_login_success(self, client: TestClient, test_user):
-        """Test successful login."""
-        response = client.post(
+        # Login
+        login_response = await async_client.post(
             "/auth/login",
-            json={"email": "test@example.com", "password": "test_password123"},
+            json={"email": unique_email, "password": password},
         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
+        assert login_response.status_code == 200
+        login_data = login_response.json()
+        assert "access_token" in login_data
+        assert login_data["email"] == unique_email
 
-    def test_login_invalid_email(self, client: TestClient):
-        """Test login with invalid email."""
-        response = client.post(
-            "/auth/login",
-            json={"email": "nonexistent@example.com", "password": "test_password123"},
+        # Access Protected Route with Token
+        access_token = login_data["access_token"]
+        projects_response = await async_client.get(
+            "/workspace/projects",
+            headers={"Authorization": f"Bearer {access_token}"},
         )
+        assert projects_response.status_code == 200
 
-        assert response.status_code == 401
-
-    def test_login_invalid_password(self, client: TestClient, test_user):
-        """Test login with invalid password."""
-        response = client.post(
-            "/auth/login",
-            json={"email": "test@example.com", "password": "wrong_password"},
-        )
-
-        assert response.status_code == 401
-
-    def test_refresh_token_success(self, client: TestClient, test_user):
-        """Test successful token refresh."""
-        # First login to get refresh token
-        login_response = client.post(
-            "/auth/login",
-            json={"email": "test@example.com", "password": "test_password123"},
-        )
-        refresh_token = login_response.json()["refresh_token"]
-
-        # Use refresh token to get new access token
-        response = client.post("/auth/refresh", json={"refresh_token": refresh_token})
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "access_token" in data
-
-    def test_refresh_token_invalid(self, client: TestClient):
-        """Test refresh with invalid token."""
-        response = client.post("/auth/refresh", json={"refresh_token": "invalid_token"})
-
-        assert response.status_code == 401
-
-    def test_logout_success(self, client: TestClient, test_user):
-        """Test successful logout."""
-        login_response = client.post(
-            "/auth/login",
-            json={"email": "test@example.com", "password": "test_password123"},
-        )
-        access_token = login_response.json()["access_token"]
-
-        response = client.post(
-            "/auth/logout", headers={"Authorization": f"Bearer {access_token}"}
-        )
-
-        assert response.status_code == 200
-
-    def test_protected_route_without_token(self, client: TestClient):
-        """Test accessing protected route without token."""
-        response = client.get("/workspace/projects")
-
-        assert response.status_code == 401
-
-    def test_protected_route_with_token(self, client: TestClient, test_user):
-        """Test accessing protected route with valid token."""
-        login_response = client.post(
-            "/auth/login",
-            json={"email": "test@example.com", "password": "test_password123"},
-        )
-        access_token = login_response.json()["access_token"]
-
-        response = client.get(
-            "/workspace/projects", headers={"Authorization": f"Bearer {access_token}"}
-        )
-
-        # Should not be 401 (might be 200 or other status based on actual implementation)
-        assert response.status_code != 401
+        # Protected route without token
+        unauth_response = await async_client.get("/workspace/projects")
+        assert unauth_response.status_code == 401

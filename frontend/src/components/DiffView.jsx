@@ -1,56 +1,89 @@
-import Editor from '@monaco-editor/react';
-import { useTheme } from '../contexts/ThemeContext';
+import React, { useState } from 'react'
+import { DiffEditor } from '@monaco-editor/react'
+import VerdictBadge from './VerdictBadge'
+import { Copy, Check, Split, AlignJustify } from 'lucide-react'
 
-/**
- * DiffView Component
- * Displays side-by-side diff using Monaco Diff Editor.
- */
-export default function DiffView({ originalCode, modifiedCode }) {
-  const { theme } = useTheme();
+export default function DiffView({
+  originalCode = '',
+  patchedCode = '',
+  unifiedDiff = '',
+  verdict = null,
+  validationPassed = true,
+  validationError = null,
+}) {
+  const [copied, setCopied] = useState(false)
+  const [renderSideBySide, setRenderSideBySide] = useState(true)
 
-  if (!originalCode || !modifiedCode) {
-    return (
-      <div className="result-block">
-        <div className="result-block-header">diff view</div>
-        <div className="result-block-body">
-          <p className="empty-hint">No code to compare.</p>
-        </div>
-      </div>
-    );
+  const handleCopy = () => {
+    navigator.clipboard.writeText(patchedCode || originalCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div className="result-block">
-      <div className="result-block-header">side-by-side diff</div>
-      <div className="result-block-body" style={{ padding: 0 }}>
-        <div className="diff-editor-container">
-          <Editor
-            height="400px"
-            defaultLanguage="python"
-            value={modifiedCode}
-            originalValue={originalCode}
-            theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
-            options={{
-              readOnly: true,
-              fontSize: 13,
-              fontFamily: "'JetBrains Mono', monospace",
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              lineNumbers: 'on',
-              renderLineHighlight: 'line',
-              tabSize: 4,
-              automaticLayout: true,
-              padding: { top: 14, bottom: 14 },
-              diffWordWrap: 'on',
-              renderSideBySide: true,
-              enableSplitViewResizing: true,
-              renderOverviewRuler: true,
-            }}
-            // Use diff mode
-            modification={originalCode !== modifiedCode ? 'diff' : undefined}
-          />
+    <div className="w-full flex flex-col h-full bg-[var(--surface-1)] border border-[var(--line)] rounded-xl overflow-hidden">
+      {/* Header bar */}
+      <div className="h-12 px-4 bg-[var(--surface-2)] border-b border-[var(--line)] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs uppercase tracking-wider font-semibold text-[var(--ink)]">
+            Candidate Patch Diff
+          </span>
+          {verdict && <VerdictBadge status={verdict} size="sm" />}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRenderSideBySide(!renderSideBySide)}
+            className="p-1.5 rounded bg-[var(--surface-1)] border border-[var(--line)] text-xs text-[var(--dim)] hover:text-[var(--ink)] transition-colors flex items-center gap-1.5"
+            title={renderSideBySide ? 'Switch to inline diff' : 'Switch to side-by-side diff'}
+          >
+            {renderSideBySide ? <Split className="w-3.5 h-3.5" /> : <AlignJustify className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline font-mono text-[10px]">
+              {renderSideBySide ? 'Side-by-Side' : 'Inline'}
+            </span>
+          </button>
+
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded bg-[var(--surface-1)] border border-[var(--line)] text-xs text-[var(--dim)] hover:text-[var(--ink)] transition-colors flex items-center gap-1.5"
+            title="Copy patched code"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-[var(--green)]" /> : <Copy className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline font-mono text-[10px]">
+              {copied ? 'Copied' : 'Copy Fix'}
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* Editor Body */}
+      <div className="flex-1 min-h-[360px] relative">
+        <DiffEditor
+          height="100%"
+          language="python"
+          original={originalCode}
+          modified={patchedCode || originalCode}
+          theme="vs-dark"
+          options={{
+            renderSideBySide: renderSideBySide,
+            readOnly: true,
+            minimap: { enabled: false },
+            fontSize: 13,
+            fontFamily: "'JetBrains Mono', monospace",
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            diffWordWrap: 'on',
+          }}
+        />
+      </div>
+
+      {/* Validation or Error footer */}
+      {validationError && (
+        <div className="px-4 py-2 bg-[var(--red)]/10 border-t border-[var(--red)]/30 font-mono text-xs text-[var(--red)]">
+          ✕ Validation Error: {validationError}
+        </div>
+      )}
     </div>
-  );
+  )
 }

@@ -98,9 +98,11 @@ If you cannot determine an issue, still return valid JSON with best-effort value
         formatted = []
         for i, issue in enumerate(issues, 1):
             severity = issue.get("severity", "unknown").upper()
+            rule_id = issue.get("rule_id", "")
             category = issue.get("category", "Unknown")
             message = issue.get("message", "")
             line = issue.get("line")
             line_info = f" (line {line})" if line else ""
-            formatted.append(f"  [{i}] [{severity}] {category}: {message}{line_info}")
+            rule_prefix = f"[{rule_id}] " if rule_id else ""
+            formatted.append(f"  [{i}] [{severity}] {rule_prefix}{category}: {message}{line_info}")
         return "\n".join(formatted)
