@@ -25,7 +25,12 @@ class DebugService:
         self.llm_client = llm_client
         self.pipeline = DebugPipeline(llm_client=llm_client)
 
-    async def debug_code(self, code: str, api_key: str | None = None) -> DebugResponse:
+    async def debug_code(
+        self,
+        code: str,
+        api_key: str | None = None,
+        test_code: str | None = None,
+    ) -> DebugResponse:
         """
         Execute the complete debug pipeline.
 
@@ -34,8 +39,13 @@ class DebugService:
         Args:
             code: The Python code to debug.
             api_key: Optional user-provided Groq API key.
+            test_code: Optional pytest verification suite.
 
         Returns:
             DebugResponse with analysis results and patch if available.
         """
-        return await self.pipeline.execute(code=code, api_key=api_key)
+        return await self.pipeline.execute(
+            code=code,
+            api_key=api_key,
+            test_code=test_code,
+        )

@@ -10,10 +10,15 @@ class DebugRequest(BaseModel):
 
     code: str = Field(..., min_length=1, description="Python code to analyze")
     api_key: str | None = Field(None, description="User's Groq API key")
+    test_code: str | None = Field(None, description="Optional pytest test code for verification assertions")
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {"code": "x = undefined_var\nprint(x)", "api_key": "gsk_..."}
+            "example": {
+                "code": "def add(a, b):\n    return a - b\n",
+                "api_key": "gsk_...",
+                "test_code": "def test_add():\n    from code_under_test import add\n    assert add(2, 3) == 5\n",
+            }
         }
     )
 

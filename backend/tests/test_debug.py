@@ -132,3 +132,22 @@ print(result)
     issues = apply_rules(code, ast_r)
     error_issues = [i for i in issues if i["severity"] == "error"]
     assert len(error_issues) == 0
+
+
+def test_get_benchmark_summary():
+    """Verify GET /api/benchmark/summary returns valid evaluation metrics."""
+    response = client.get("/api/benchmark/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert "dataset_size" in data
+    assert data["dataset_size"] >= 30
+
+
+def test_get_benchmark_dataset():
+    """Verify GET /api/benchmark/dataset returns structured dataset."""
+    response = client.get("/api/benchmark/dataset")
+    assert response.status_code == 200
+    items = response.json()
+    assert len(items) >= 30
+    assert all("id" in item and "category" in item for item in items)
+

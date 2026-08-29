@@ -6,6 +6,7 @@ Includes session management and usage limiting.
 """
 
 import time
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
@@ -137,7 +138,9 @@ async def debug_code(request: Request, response: Response, debug_request: DebugR
             # Execute debug pipeline with Groq LLM and verification
             start_time = time.time()
             result = await debug_service.debug_code(
-                code=code, api_key=debug_request.api_key
+                code=code,
+                api_key=debug_request.api_key,
+                test_code=debug_request.test_code,
             )
             execution_time_ms = (time.time() - start_time) * 1000
 
@@ -388,3 +391,74 @@ def _convert_verification_report_to_response(
         failure_reason=report.failure_reason,
         evidence=evidence_response,
     )
+
+
+@router.get(
+    "/benchmark/summary",
+    summary="Get Evaluation Benchmark Results",
+    description="Returns empirical evaluation results across architecture modes from real benchmark runs.",
+)
+@router.get(
+    "/api/benchmark/summary",
+    include_in_schema=False,
+)
+async def get_benchmark_summary() -> dict[str, Any]:
+    """Return machine-readable evaluation results."""
+    import json
+    from pathlib import Path
+    
+    results_path = Path("benchmarks/evaluation_results.json")
+    if results_path.exists():
+        try:
+            with open(results_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as exc:
+            logger.warning("Failed to load evaluation_results.json: %s", exc)
+
+    # Fallback: compute live deterministic metrics
+    from benchmarks.benchmark_runner import BenchmarkRunner
+    runner = BenchmarkRunner()
+    summary = runner.run_deterministic_evaluation()
+    return {
+        "dataset_size": summary.total_cases,
+        "modes": {
+            "deterministic_ast": {
+                "mode": "ast_only",
+                "total_cases": summary.total_cases,
+                "detected_count": summary.successful_detections,
+                "detection_rate": summary.detection_rate,
+                "avg_latency_ms": summary.avg_total_duration_ms,
+            }
+        },
+        "category_metrics": summary.category_metrics,
+    }
+
+
+@router.get(
+    "/benchmark/dataset",
+    summary="Get Evaluation Benchmark Dataset",
+    description="Returns all 40 structured Python test cases in the benchmark dataset.",
+)
+@router.get(
+    "/api/benchmark/dataset",
+    include_in_schema=False,
+)
+async def get_benchmark_dataset() -> list[dict[str, Any]]:
+    """Return all dataset test cases without internal execution code."""
+    from benchmarks.dataset import BENCHMARK_DATASET
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "category": s.category,
+            "difficulty": s.difficulty,
+            "deterministic": s.deterministic,
+            "buggy_code": s.code,
+            "expected_issue": s.expected_issue,
+            "expected_behavior": s.expected_fixed_behavior,
+            "expected_rule_id": s.expected_rule_id,
+            "has_test_suite": bool(s.test_code),
+        }
+        for s in BENCHMARK_DATASET
+    ]
+
