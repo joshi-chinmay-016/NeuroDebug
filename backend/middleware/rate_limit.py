@@ -8,7 +8,7 @@ import time
 from collections import defaultdict
 from typing import Callable
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from utils.config import Config

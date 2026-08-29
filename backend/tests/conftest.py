@@ -50,7 +50,6 @@ async def setup_database():
 async def db_session():
     """Create an isolated SQLite database session for unit/repository tests."""
     import tempfile
-    import os
 
     temp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     temp_db.close()

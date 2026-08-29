@@ -203,7 +203,6 @@ async def login(request: Request, response: Response, login_request: LoginReques
     async with get_db_session() as session:
         try:
             user_repo = UserRepository(session)
-            subscription_repo = SubscriptionRepository(session)
 
             # Get user by email
             user = await user_repo.get_by_email(login_request.email)
@@ -357,7 +356,6 @@ async def refresh_token(
 
         async with get_db_session() as session:
             user_repo = UserRepository(session)
-            subscription_repo = SubscriptionRepository(session)
 
             # Get user
             user = await user_repo.get_by_id(user_id)
@@ -456,7 +454,6 @@ async def get_current_user(request: Request):
 
         async with get_db_session() as session:
             user_repo = UserRepository(session)
-            subscription_repo = SubscriptionRepository(session)
 
             # Get user
             user = await user_repo.get_by_id(user_id)

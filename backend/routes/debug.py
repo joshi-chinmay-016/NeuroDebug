@@ -17,6 +17,7 @@ from models.responses import (
     HealthResponse,
     VerificationReportResponse,
 )
+from repositories.debug_session_repository import DebugSessionRepository
 from services.debug_service import DebugService
 from services.session_service import SessionService
 from services.usage_limit_service import UsageLimitExceededError, UsageLimitService

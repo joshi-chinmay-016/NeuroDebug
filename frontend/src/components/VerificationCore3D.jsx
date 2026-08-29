@@ -11,16 +11,25 @@ import * as THREE from 'three'
  *  - 0.45-0.75: Executing (Amber, active scan ring sweeping up/down across surface)
  *  - 0.75-1.00: Verified (Green #3FE08A, jitter=0, solid faceted low-poly mesh, calm rotation, breathing outer glow)
  */
-export default function VerificationCore3D({ onStateChange }) {
+export default function VerificationCore3D() {
   const containerRef = useRef(null)
   const isHoveredRef = useRef(false)
   const pulseTriggerRef = useRef(false)
   const lastStageRef = useRef(-1)
   const scrollRef = useRef(0)
 
-  const [hasWebGL, setHasWebGL] = useState(true)
+  const [hasWebGL] = useState(() => {
+    try {
+      const canvas = document.createElement('canvas')
+      return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
+    if (!hasWebGL) return
+
     // 1. Passive scroll listener updating ref directly
     const updateScroll = () => {
       const doc = document.documentElement
@@ -35,19 +44,6 @@ export default function VerificationCore3D({ onStateChange }) {
 
     const container = containerRef.current
     if (!container) return
-
-    // WebGL context check
-    try {
-      const canvas = document.createElement('canvas')
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
-      if (!gl) {
-        setHasWebGL(false)
-        return
-      }
-    } catch {
-      setHasWebGL(false)
-      return
-    }
 
     const width = container.clientWidth || 500
     const height = container.clientHeight || 500

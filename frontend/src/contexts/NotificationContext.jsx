@@ -16,6 +16,10 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([])
 
+  const removeNotification = useCallback((id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }, [])
+
   const addNotification = useCallback((notification) => {
     const id = Date.now()
     setNotifications((prev) => [...prev, { ...notification, id }])
@@ -24,11 +28,7 @@ export const NotificationProvider = ({ children }) => {
     setTimeout(() => {
       removeNotification(id)
     }, 5000)
-  }, [])
-
-  const removeNotification = useCallback((id) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
-  }, [])
+  }, [removeNotification])
 
   const success = useCallback((message, title = 'Success') => {
     addNotification({ type: 'success', title, message })

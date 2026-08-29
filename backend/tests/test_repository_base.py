@@ -149,6 +149,7 @@ async def test_timestamp_mixin(db_session: AsyncSession):
 
     # Verify updated_at changed or at least the field was updated
     assert updated_user.display_name == "Updated Name"
+    assert updated_user.updated_at >= initial_updated
 
 
 @pytest.mark.asyncio

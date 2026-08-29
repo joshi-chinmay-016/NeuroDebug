@@ -283,14 +283,14 @@ class TestHistoryService:
         self, history_service: HistoryService, test_user: User, test_project: Project, session_repository: DebugSessionRepository
     ):
         """Test filtering sessions by patch status."""
-        session1 = await session_repository.create_debug_session(
+        await session_repository.create_debug_session(
             session_id="session-1",
             code="code 1",
             user_id=test_user.id,
             project_id=test_project.id,
             error_type="Error1",
         )
-        session2 = await session_repository.create_debug_session(
+        await session_repository.create_debug_session(
             session_id="session-2",
             code="code 2",
             user_id=test_user.id,
@@ -329,7 +329,7 @@ class TestHistoryService:
     ):
         """Test getting session statistics."""
         for i in range(3):
-            session = await session_repository.create_debug_session(
+            await session_repository.create_debug_session(
                 session_id=f"session-{i}",
                 code=f"code {i}",
                 user_id=test_user.id,

@@ -62,7 +62,7 @@ apiClient.interceptors.response.use(
 
           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
           return apiClient(originalRequest);
-        } catch (refreshErr) {
+        } catch {
           console.warn('Refresh token expired or invalid, clearing auth session');
           localStorage.removeItem(ACCESS_TOKEN_KEY);
           localStorage.removeItem(REFRESH_TOKEN_KEY);

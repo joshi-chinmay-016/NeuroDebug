@@ -6,17 +6,17 @@ import profileService from '../services/profileService'
 export default function Settings() {
   const { user, isAuthenticated } = useAuth()
   const [savedField, setSavedField] = useState(null)
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [name, setName] = useState(() => user?.display_name || '')
+  const [email, setEmail] = useState(() => user?.email || '')
   const [groqKey, setGroqKey] = useState('')
   const [theme, setTheme] = useState('dark')
 
-  useEffect(() => {
-    if (user) {
-      setName(user.display_name || '')
-      setEmail(user.email || '')
-    }
-  }, [user])
+  const [prevUserId, setPrevUserId] = useState(user?.id)
+  if (user && user.id !== prevUserId) {
+    setPrevUserId(user.id)
+    setName(user.display_name || '')
+    setEmail(user.email || '')
+  }
 
   const triggerSave = async (fieldName) => {
     try {
