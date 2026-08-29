@@ -371,7 +371,12 @@ class _ASTVisitor(ast.NodeVisitor):
             d for d in node.args.kw_defaults if d is not None
         ]
         for default in all_defaults:
-            if isinstance(default, mutable_types):
+            is_mutable = isinstance(default, mutable_types) or (
+                isinstance(default, ast.Call)
+                and isinstance(default.func, ast.Name)
+                and default.func.id in ("list", "dict", "set")
+            )
+            if is_mutable:
                 if node.name not in self.mutable_defaults:
                     self.mutable_defaults.append(node.name)
                 self.mutable_default_details.append(
