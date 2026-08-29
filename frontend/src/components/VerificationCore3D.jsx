@@ -4,19 +4,24 @@ import * as THREE from 'three'
 /**
  * VerificationCore3D
  * 
- * Central 3D centerpiece of the NeuroDebug landing page.
- * Implements a full motion & material scroll-driven state machine:
+ * Hollow geometric 3D wireframe globe centerpiece of the NeuroDebug landing page.
+ * Implements a full motion & material scroll-driven state machine on the hollow 3D lattice:
  *  - 0.00-0.20: Unresolved (Red #F2555A, chaotic high jitter amp, rapid tumbling wireframe)
  *  - 0.20-0.45: Candidate Patch (Amber #F2B84B, settling jitter, slower rotation)
- *  - 0.45-0.75: Executing (Amber, active scan ring sweeping up/down across surface)
- *  - 0.75-1.00: Verified (Green #3FE08A, jitter=0, solid faceted low-poly mesh, calm rotation, breathing outer glow)
+ *  - 0.45-0.75: Executing (Amber, active scan ring sweeping across wireframe surface)
+ *  - 0.75-1.00: Verified (Green #3FE08A, jitter=0, calm crystal wireframe rotation)
  */
-export default function VerificationCore3D() {
+export default function VerificationCore3D({ onStateChange } = {}) {
   const containerRef = useRef(null)
   const isHoveredRef = useRef(false)
   const pulseTriggerRef = useRef(false)
   const lastStageRef = useRef(-1)
   const scrollRef = useRef(0)
+  const onStateChangeRef = useRef(onStateChange)
+
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange
+  }, [onStateChange])
 
   const [hasWebGL] = useState(() => {
     try {
@@ -67,15 +72,14 @@ export default function VerificationCore3D() {
     const colorAmber = new THREE.Color('#F2B84B')
     const colorGreen = new THREE.Color('#3FE08A')
 
-    // 1. Core Icosahedron Geometry (detail=2 for rich vertex displacement)
-    const radius = 1.7
+    // 1. Hollow Geometric Wireframe Globe
+    const radius = 1.75
     const detail = 2
-    const baseGeo = new THREE.IcosahedronGeometry(radius, detail)
-    const posAttr = baseGeo.attributes.position
+    const wireGeo = new THREE.IcosahedronGeometry(radius, detail)
+    const posAttr = wireGeo.attributes.position
     const origPositions = new Float32Array(posAttr.array)
 
-    // Wireframe Mesh (active in unresolved/candidate states)
-    const wireGeo = baseGeo.clone()
+    // Hollow Wireframe Material
     const wireMaterial = new THREE.MeshBasicMaterial({
       color: colorRed,
       wireframe: true,
@@ -85,34 +89,6 @@ export default function VerificationCore3D() {
     })
     const wireMesh = new THREE.Mesh(wireGeo, wireMaterial)
     scene.add(wireMesh)
-
-    // Solid Faceted Mesh (active in verified state)
-    const solidGeo = baseGeo.clone()
-    const solidMaterial = new THREE.MeshStandardMaterial({
-      color: colorGreen,
-      flatShading: true,
-      roughness: 0.35,
-      metalness: 0.25,
-      transparent: true,
-      opacity: 0.0,
-      depthWrite: true,
-    })
-    const solidMesh = new THREE.Mesh(solidGeo, solidMaterial)
-    solidMesh.visible = false
-    scene.add(solidMesh)
-
-    // Glow Outer Mesh (appears when approaching verified)
-    const glowGeo = new THREE.IcosahedronGeometry(radius * 1.14, 1)
-    const glowMaterial = new THREE.MeshBasicMaterial({
-      color: colorGreen,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.0,
-      depthWrite: false,
-    })
-    const glowMesh = new THREE.Mesh(glowGeo, glowMaterial)
-    glowMesh.visible = false
-    scene.add(glowMesh)
 
     // 2. Scan Ring (Execution pass representation)
     const ringGeo = new THREE.TorusGeometry(radius * 1.35, 0.025, 16, 64)
@@ -127,7 +103,7 @@ export default function VerificationCore3D() {
     scanRing.visible = false
     scene.add(scanRing)
 
-    // 3. One-off Click Pulse Ring Easter Egg
+    // 3. One-off Click Pulse Ring
     const pulseRingGeo = new THREE.TorusGeometry(radius * 0.5, 0.035, 16, 64)
     const pulseRingMat = new THREE.MeshBasicMaterial({
       color: colorGreen,
@@ -197,7 +173,7 @@ export default function VerificationCore3D() {
     }
     window.addEventListener('resize', handleResize)
 
-    // High-performance simplex-like noise
+    // Simplex/Perlin Noise approximation helper for organic vertex displacement
     const calcNoise = (x, y, z, t) => {
       return (
         Math.sin(x * 3.2 + t * 5.0) * Math.cos(y * 2.8 + t * 4.0) +
@@ -209,8 +185,8 @@ export default function VerificationCore3D() {
     // Animation Loop
     let animId
     let time = 0
-    let bootScale = 0
     const startTime = performance.now()
+    let bootScale = 0.0
 
     const animate = () => {
       animId = requestAnimationFrame(animate)
@@ -236,7 +212,6 @@ export default function VerificationCore3D() {
 
       if (p < 0.20) {
         // [0.00 - 0.20]: UNRESOLVED
-        // High chaotic jitter, rapid erratic rotation, wireframe only
         const t = p / 0.20
         activeColor.copy(colorRed)
         jitterAmp = THREE.MathUtils.lerp(0.26, 0.20, t)
@@ -244,13 +219,10 @@ export default function VerificationCore3D() {
 
         wireMesh.visible = true
         wireMaterial.opacity = 0.95
-        solidMesh.visible = false
-        glowMesh.visible = false
         scanRing.visible = false
         stage = 0
       } else if (p < 0.45) {
         // [0.20 - 0.45]: CANDIDATE PATCH
-        // Color lerps Red -> Amber, jitter drops ~40%, rotation slows down
         const t = (p - 0.20) / 0.25
         activeColor.copy(colorRed).lerp(colorAmber, t)
         jitterAmp = THREE.MathUtils.lerp(0.20, 0.11, t)
@@ -258,22 +230,17 @@ export default function VerificationCore3D() {
 
         wireMesh.visible = true
         wireMaterial.opacity = 0.95
-        solidMesh.visible = false
-        glowMesh.visible = false
         scanRing.visible = false
         stage = 1
       } else if (p < 0.75) {
         // [0.45 - 0.75]: EXECUTING
-        // Amber color, scan ring sweeps across surface, jitter stabilizes further
         const t = (p - 0.45) / 0.30
         activeColor.copy(colorAmber)
         jitterAmp = THREE.MathUtils.lerp(0.11, 0.04, t)
         rotBaseSpeed = THREE.MathUtils.lerp(0.011, 0.007, t)
 
         wireMesh.visible = true
-        wireMaterial.opacity = 0.90
-        solidMesh.visible = t > 0.5
-        solidMaterial.opacity = THREE.MathUtils.lerp(0.0, 0.4, t)
+        wireMaterial.opacity = 0.92
 
         scanRing.visible = true
         ringMaterial.color.copy(colorAmber)
@@ -281,30 +248,16 @@ export default function VerificationCore3D() {
         // Scan ring sweeps up and down along Y axis
         scanRing.position.y = Math.sin(time * 3.5) * (radius * 0.75)
         scanRing.rotation.z += 0.04
-        glowMesh.visible = false
         stage = 2
       } else {
         // [0.75 - 1.00]: VERIFIED
-        // Amber -> Green lerp, jitter reaches 0 (perfect crystal), solid faceted mesh emerges,
-        // rotation settles into calm state, breathing outer glow ramps in
         const t = (p - 0.75) / 0.25
         activeColor.copy(colorAmber).lerp(colorGreen, t)
         jitterAmp = THREE.MathUtils.lerp(0.04, 0.00, t)
         rotBaseSpeed = THREE.MathUtils.lerp(0.007, 0.004, t)
 
-        wireMesh.visible = t < 0.9
-        wireMaterial.opacity = THREE.MathUtils.lerp(0.9, 0.0, t)
-
-        solidMesh.visible = true
-        solidMaterial.opacity = THREE.MathUtils.lerp(0.4, 0.95, t)
-        solidMaterial.color.copy(activeColor)
-
-        // Outer glow breathing
-        glowMesh.visible = true
-        const breathe = 1.0 + Math.sin(time * 2.0) * 0.03
-        glowMesh.scale.set(breathe, breathe, breathe)
-        glowMaterial.color.copy(activeColor)
-        glowMaterial.opacity = THREE.MathUtils.lerp(0.1, 0.5, t)
+        wireMesh.visible = true
+        wireMaterial.opacity = THREE.MathUtils.lerp(0.92, 0.98, t)
 
         scanRing.visible = t < 0.3
         ringMaterial.opacity = THREE.MathUtils.lerp(0.85, 0.0, t / 0.3)
@@ -316,14 +269,13 @@ export default function VerificationCore3D() {
       particleMaterial.color.copy(activeColor)
 
       // Notify parent when discrete stage changes
-      if (onStateChange && lastStageRef.current !== stage) {
+      if (onStateChangeRef.current && lastStageRef.current !== stage) {
         lastStageRef.current = stage
-        onStateChange(stage, p)
+        onStateChangeRef.current(stage, p)
       }
 
-      // 3. Dynamic Vertex Jitter Update (applies to both wireframe & solid geometries)
+      // 3. Dynamic Vertex Jitter Update on Hollow Wireframe
       const wireArr = wireGeo.attributes.position.array
-      const solidArr = solidGeo.attributes.position.array
 
       for (let i = 0; i < posAttr.count; i++) {
         const ox = origPositions[i * 3]
@@ -340,28 +292,18 @@ export default function VerificationCore3D() {
         wireArr[i * 3] = dx
         wireArr[i * 3 + 1] = dy
         wireArr[i * 3 + 2] = dz
-
-        solidArr[i * 3] = dx
-        solidArr[i * 3 + 1] = dy
-        solidArr[i * 3 + 2] = dz
       }
 
       wireGeo.attributes.position.needsUpdate = true
-      solidGeo.attributes.position.needsUpdate = true
-      solidGeo.computeVertexNormals()
 
       // 4. Scroll-governed Rotation & Settling Behavior
       const speed = isHoveredRef.current ? rotBaseSpeed * 0.3 : rotBaseSpeed
       wireMesh.rotation.y += speed
       wireMesh.rotation.x += speed * 0.55
-      solidMesh.rotation.copy(wireMesh.rotation)
-      glowMesh.rotation.copy(wireMesh.rotation)
 
       // Scale with entrance & hover
       const baseScale = bootScale * (isHoveredRef.current ? 1.04 : 1.0)
       wireMesh.scale.set(baseScale, baseScale, baseScale)
-      solidMesh.scale.set(baseScale, baseScale, baseScale)
-      glowMesh.scale.set(baseScale * 1.12, baseScale * 1.12, baseScale * 1.12)
 
       // 5. Camera mouse parallax
       camera.position.x += (mouseX * 0.35 - camera.position.x) * 0.05
@@ -397,12 +339,8 @@ export default function VerificationCore3D() {
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
       }
-      baseGeo.dispose()
       wireGeo.dispose()
-      solidGeo.dispose()
       wireMaterial.dispose()
-      solidMaterial.dispose()
-      glowMaterial.dispose()
       ringMaterial.dispose()
       pulseRingGeo.dispose()
       pulseRingMat.dispose()
