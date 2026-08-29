@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, Link } from 'react-router-dom'
 import {
   Activity,
   Terminal,
+  Award,
   FolderGit2,
   History as HistoryIcon,
   BarChart3,
@@ -54,6 +55,7 @@ export default function Layout() {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Activity },
     { path: '/debug', label: 'Debugger', icon: Terminal },
+    { path: '/evaluation', label: 'Evaluation', icon: Award },
     { path: '/projects', label: 'Projects', icon: FolderGit2 },
     { path: '/history', label: 'History', icon: HistoryIcon },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },

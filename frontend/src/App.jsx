@@ -10,6 +10,7 @@ import DebuggerNew from './components/DebuggerNew'
 import Projects from './components/Projects'
 import History from './components/History'
 import Analytics from './components/Analytics'
+import EvaluationDashboard from './components/EvaluationDashboard'
 import Pricing from './components/Pricing'
 import Settings from './components/Settings'
 import Auth from './components/Auth'
@@ -32,6 +33,8 @@ function AppContent() {
         <Route element={<Layout />}>
           <Route path="/debug" element={<DebuggerNew />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/evaluation" element={<EvaluationDashboard />} />
+          <Route path="/benchmarks" element={<EvaluationDashboard />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/history" element={<History />} />
           <Route path="/analytics" element={<Analytics />} />

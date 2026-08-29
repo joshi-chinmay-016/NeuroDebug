@@ -274,6 +274,32 @@ export default function DebuggerNew() {
                 Verification Evidence
               </button>
 
+              {response?.ranked_candidates?.length > 0 && (
+                <button
+                  onClick={() => setActiveTab('ranked')}
+                  className={`px-3 py-1.5 rounded-md font-mono text-xs transition-colors ${
+                    activeTab === 'ranked'
+                      ? 'bg-[var(--surface-1)] text-[var(--ink)] font-semibold border border-[var(--line)]'
+                      : 'text-[var(--dim)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  Ranked Patches ({response.ranked_candidates.length})
+                </button>
+              )}
+
+              {response?.agreement_signal && (
+                <button
+                  onClick={() => setActiveTab('consensus')}
+                  className={`px-3 py-1.5 rounded-md font-mono text-xs transition-colors ${
+                    activeTab === 'consensus'
+                      ? 'bg-[var(--surface-1)] text-[var(--ink)] font-semibold border border-[var(--line)]'
+                      : 'text-[var(--dim)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  Consensus Signal
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveTab('issues')}
                 className={`px-3 py-1.5 rounded-md font-mono text-xs transition-colors ${
@@ -388,6 +414,78 @@ export default function DebuggerNew() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Ranked Candidates Tab */}
+                {activeTab === 'ranked' && (
+                  <div className="space-y-4 text-xs font-mono">
+                    {response.ranked_candidates?.map((cand, i) => (
+                      <div
+                        key={cand.candidate_id || i}
+                        className={`p-4 rounded-xl border ${
+                          cand.rank === 1
+                            ? 'bg-[var(--green)]/5 border-[var(--green)]/30'
+                            : 'bg-[var(--surface-2)] border-[var(--line)]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[var(--ink)]">
+                              Rank #{cand.rank}: {cand.candidate_id}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-white/5 border border-white/10 text-[var(--dim)]">
+                              Source: {cand.source}
+                            </span>
+                          </div>
+                          <VerdictBadge status={cand.verification_status} size="sm" />
+                        </div>
+
+                        <div className="text-xs text-[var(--dim)] mb-3">
+                          Score: <span className="text-[var(--ink)] font-semibold">{cand.evidence_score}/100</span> •{' '}
+                          {cand.selection_reason}
+                        </div>
+
+                        <pre className="p-3 rounded bg-[var(--surface-1)] border border-[var(--line)] overflow-x-auto text-[11px]">
+                          <code>{cand.diff || cand.patched_code}</code>
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Consensus Signal Tab */}
+                {activeTab === 'consensus' && response.agreement_signal && (
+                  <div className="space-y-4 text-xs font-mono">
+                    <div className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--line)] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[var(--dim)]">Consensus Classification:</span>
+                        <span className="font-bold text-[var(--green)] px-2.5 py-1 rounded bg-[var(--green)]/10 border border-[var(--green)]/20">
+                          {response.agreement_signal.consensus_status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[var(--dim)]">Agreement Score:</span>
+                        <span className="text-[var(--ink)] font-semibold">
+                          {(response.agreement_signal.agreement_score * 100).toFixed(0)}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[var(--dim)]">Calibrated Confidence:</span>
+                        <span className="text-[var(--green)] font-semibold">
+                          {(response.agreement_signal.calibrated_confidence * 100).toFixed(0)}%
+                        </span>
+                      </div>
+
+                      <div className="pt-2 border-t border-[var(--line)]">
+                        <span className="text-[var(--dim)] block mb-1">Synthesis Summary:</span>
+                        <p className="text-[var(--ink)] leading-relaxed">
+                          {response.agreement_signal.synthesis_summary}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
