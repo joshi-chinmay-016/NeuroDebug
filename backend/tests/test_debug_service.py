@@ -27,6 +27,6 @@ async def test_debug_service_delegates_to_pipeline(debug_service):
     result = await debug_service.debug_code(code="x = 1", api_key="test-key")
 
     debug_service.pipeline.execute.assert_awaited_once_with(
-        code="x = 1", api_key="test-key"
+        code="x = 1", api_key="test-key", test_code=None
     )
     assert result is expected_response
