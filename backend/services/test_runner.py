@@ -156,22 +156,23 @@ class PytestRunner:
         for line in lines:
             line = line.strip()
 
-            # Parse test lines like: test_add_positive_numbers PASSED
-            if line and not line.startswith("=") and not line.startswith("test_"):
+            # Ignore separators, summaries, and failure headers
+            if not line or line.startswith("=") or line.startswith("_"):
                 continue
 
-            # Match test result patterns
-            if "::" in line or line.startswith("test_"):
+            # Match pytest test case lines like: test_file.py::test_name PASSED [100%]
+            if "::" in line:
                 parts = line.split()
                 if len(parts) >= 2:
-                    test_name = (
-                        parts[0].split("::")[-1] if "::" in parts[0] else parts[0]
-                    )
-                    status = parts[-1].upper()
+                    test_name = parts[0].split("::")[-1]
+                    upper_parts = [p.upper() for p in parts]
 
-                    passed = status == "PASSED"
-                    failed = status == "FAILED"
-                    skipped = status == "SKIPPED" or status == "XFAIL"
+                    passed = "PASSED" in upper_parts
+                    failed = "FAILED" in upper_parts or "ERROR" in upper_parts
+                    skipped = "SKIPPED" in upper_parts or "XFAIL" in upper_parts
+
+                    if not (passed or failed or skipped):
+                        continue
 
                     # Extract duration if available
                     duration = 0.0
@@ -182,10 +183,7 @@ class PytestRunner:
                             except ValueError:
                                 pass
 
-                    error_message = None
-                    if failed:
-                        # Try to extract error from next lines
-                        error_message = "Test failed"
+                    error_message = "Test failed" if failed else None
 
                     test_results.append(
                         TestResultData(
