@@ -32,7 +32,7 @@ class TestVerificationEngine:
 
         report = engine.verify_patch(original_code, patched_code)
 
-        assert report.verification_status == VerificationStatus.UNVERIFIED
+        assert report.verification_status == VerificationStatus.FAILED_VERIFICATION
         assert "regression" in report.failure_reason.lower()
         assert report.evidence.original_code_execution.success is True
         assert report.evidence.patched_code_execution.success is False
@@ -45,7 +45,7 @@ class TestVerificationEngine:
 
         report = engine.verify_patch(original_code, patched_code)
 
-        assert report.verification_status == VerificationStatus.UNVERIFIED
+        assert report.verification_status == VerificationStatus.FAILED_VERIFICATION
         assert report.evidence.original_code_execution.success is False
         assert report.evidence.patched_code_execution.success is False
 
@@ -60,7 +60,7 @@ class TestVerificationEngine:
 
         report = engine.verify_patch(original_code, patched_code)
 
-        assert report.verification_status == VerificationStatus.UNVERIFIED
+        assert report.verification_status == VerificationStatus.EXECUTION_TIMEOUT
         assert report.evidence.patched_code_execution.timeout_occurred is True
         # Timeout is classified as regression when original succeeded
         assert report.evidence.execution_comparison["success_regressed"] is True

@@ -160,8 +160,8 @@ class PytestRunner:
             if not line or line.startswith("=") or line.startswith("_"):
                 continue
 
-            # Match pytest test case lines like: test_file.py::test_name PASSED [100%]
-            if "::" in line:
+            # Match pytest test case lines like: test_file.py::test_name PASSED [100%] or test_name PASSED
+            if "::" in line or line.startswith("test_"):
                 parts = line.split()
                 if len(parts) >= 2:
                     test_name = parts[0].split("::")[-1]

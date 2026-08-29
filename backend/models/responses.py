@@ -147,6 +147,30 @@ class VerificationReportResponse(BaseModel):
     )
 
 
+class AgreementSignalResponse(BaseModel):
+    """Response model for AST / LLM agreement signal."""
+
+    agreement_score: float = Field(..., ge=0.0, le=1.0, description="Agreement score between AST and LLM")
+    consensus_status: str = Field(..., description="Consensus classification")
+    matched_issues_count: int = Field(0, description="Number of matched issues")
+    calibrated_confidence: float = Field(0.0, ge=0.0, le=1.0, description="Calibrated confidence score")
+    synthesis_summary: str = Field("", description="Summary of agreement/disagreement")
+
+
+class CandidateEvaluationResponse(BaseModel):
+    """Response model for candidate patch evaluations."""
+
+    candidate_id: str = Field(..., description="Unique candidate ID")
+    source: str = Field(..., description="Source of candidate: llm | deterministic | rule_engine")
+    patched_code: str = Field(..., description="Patched code string")
+    diff: str = Field(..., description="Unified diff")
+    validation_passed: bool = Field(..., description="Whether syntax validation passed")
+    verification_status: str = Field(..., description="Verification status")
+    evidence_score: float = Field(0.0, description="Evidence score 0-100")
+    rank: int = Field(0, description="Rank position")
+    selection_reason: str = Field("", description="Why this candidate was chosen/ranked")
+
+
 class DebugResponse(BaseModel):
     """Response model for debug endpoint."""
 
@@ -165,6 +189,12 @@ class DebugResponse(BaseModel):
     validation_result: str = Field(..., description="Result of patch validation")
     verification_report: VerificationReportResponse | None = Field(
         None, description="Verification report if patch was verified"
+    )
+    agreement_signal: AgreementSignalResponse | None = Field(
+        None, description="AST / LLM consensus agreement signal"
+    )
+    ranked_candidates: list[CandidateEvaluationResponse] = Field(
+        default_factory=list, description="All evaluated and ranked candidate patches"
     )
     metadata: dict = Field(default_factory=dict, description="Additional metadata")
     usage_info: dict | None = Field(
