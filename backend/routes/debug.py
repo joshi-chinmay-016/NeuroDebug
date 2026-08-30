@@ -338,6 +338,9 @@ def _convert_verification_report_to_response(
         execution_time=report.evidence.original_code_execution.execution_time,
         timeout_occurred=report.evidence.original_code_execution.timeout_occurred,
         traceback=report.evidence.original_code_execution.traceback,
+        output_truncated=getattr(report.evidence.original_code_execution, "output_truncated", False),
+        resource_limited=getattr(report.evidence.original_code_execution, "resource_limited", False),
+        sandbox_error=getattr(report.evidence.original_code_execution, "sandbox_error", None),
     )
 
     patched_exec = ExecutionResultResponse(
@@ -348,6 +351,9 @@ def _convert_verification_report_to_response(
         execution_time=report.evidence.patched_code_execution.execution_time,
         timeout_occurred=report.evidence.patched_code_execution.timeout_occurred,
         traceback=report.evidence.patched_code_execution.traceback,
+        output_truncated=getattr(report.evidence.patched_code_execution, "output_truncated", False),
+        resource_limited=getattr(report.evidence.patched_code_execution, "resource_limited", False),
+        sandbox_error=getattr(report.evidence.patched_code_execution, "sandbox_error", None),
     )
 
     # Convert test results if available
@@ -374,6 +380,8 @@ def _convert_verification_report_to_response(
             test_results=test_result_responses,
             output=report.evidence.test_results.output,
             error=report.evidence.test_results.error,
+            output_truncated=getattr(report.evidence.test_results, "output_truncated", False),
+            sandbox_error=getattr(report.evidence.test_results, "sandbox_error", None),
         )
 
     # Build evidence response

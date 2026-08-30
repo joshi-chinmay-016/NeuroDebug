@@ -37,6 +37,9 @@ class ExecutionResultResponse(BaseModel):
     execution_time: float = Field(..., description="Execution time in seconds")
     timeout_occurred: bool = Field(..., description="Whether execution timed out")
     traceback: str | None = Field(None, description="Traceback if error occurred")
+    output_truncated: bool = Field(False, description="Whether output exceeded buffer limit and was truncated")
+    resource_limited: bool = Field(False, description="Whether execution exceeded memory/process resource boundaries")
+    sandbox_error: str | None = Field(None, description="Sandbox infrastructure error if any")
 
 
 class TestResultResponse(BaseModel):
@@ -65,6 +68,8 @@ class TestSuiteResultResponse(BaseModel):
     )
     output: str = Field(..., description="Test output")
     error: str | None = Field(None, description="Error if test execution failed")
+    output_truncated: bool = Field(False, description="Whether test output was truncated")
+    sandbox_error: str | None = Field(None, description="Sandbox test harness error if any")
 
     model_config = ConfigDict(extra="ignore")
 
