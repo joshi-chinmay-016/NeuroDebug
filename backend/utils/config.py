@@ -1,9 +1,14 @@
 """Configuration management for NeuroDebug."""
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
+# Search and load .env from backend directory, parent workspace, and CWD
+_backend_dir = Path(__file__).resolve().parent.parent
+load_dotenv(_backend_dir / ".env")
+load_dotenv(_backend_dir.parent / ".env")
 load_dotenv()
 
 
@@ -25,10 +30,38 @@ class Config:
     REQUEST_TIMEOUT: int = 30
 
     # Database Configuration
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+asyncpg://neurodebug:neurodebug@localhost:5432/neurodebug",
-    )
+    @staticmethod
+    def _get_database_url() -> str:
+        # Check all standard cloud database environment variables
+        raw = (
+            os.getenv("DATABASE_URL")
+            or os.getenv("DATABASE_PRIVATE_URL")
+            or os.getenv("DATABASE_PUBLIC_URL")
+            or os.getenv("POSTGRES_URL")
+            or os.getenv("POSTGRESQL_URL")
+            or os.getenv("SUPABASE_DATABASE_URL")
+            or ""
+        )
+        if not raw:
+            return "postgresql+asyncpg://neurodebug:neurodebug@localhost:5432/neurodebug"
+
+        # Normalize driver prefix for asyncpg
+        if raw.startswith("postgres://"):
+            raw = raw.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif raw.startswith("postgresql://") and not raw.startswith("postgresql+asyncpg://"):
+            raw = raw.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+        # Normalize sslmode query parameters for asyncpg compatibility
+        if "sslmode=require" in raw:
+            raw = raw.replace("sslmode=require", "ssl=require")
+        elif "sslmode=prefer" in raw:
+            raw = raw.replace("sslmode=prefer", "ssl=prefer")
+        elif "sslmode=disable" in raw:
+            raw = raw.replace("sslmode=disable", "ssl=disable")
+
+        return raw
+
+    DATABASE_URL: str = _get_database_url.__func__()
     DATABASE_ECHO: bool = os.getenv("DATABASE_ECHO", "false").lower() == "true"
     DATABASE_POOL_SIZE: int = int(os.getenv("DATABASE_POOL_SIZE", "5"))
     DATABASE_MAX_OVERFLOW: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))

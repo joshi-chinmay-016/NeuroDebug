@@ -97,6 +97,7 @@ async def _ensure_database_exists() -> None:
             host=host,
             port=port,
             database="postgres",
+            timeout=3.0,
         )
         exists = await conn.fetchval(
             "SELECT 1 FROM pg_database WHERE datname = $1", db_name
@@ -208,8 +209,11 @@ async def init_db() -> None:
         # Seed default plans
         await _seed_subscription_plans()
     except Exception as exc:
-        logger.error("Failed to initialize database: %s", exc)
-        raise
+        logger.warning(
+            "Database initialization encountered an issue on startup: %s. "
+            "Server will continue running so stateless endpoints remain available.",
+            exc,
+        )
 
 
 async def close_db() -> None:
