@@ -1,8 +1,10 @@
 """
 Test Runner Service.
 
-Executes pytest test cases and records results.
+Executes pytest test cases in isolated Docker sandboxes and records detailed results.
 """
+
+from __future__ import annotations
 
 import subprocess
 import sys
@@ -10,6 +12,16 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from services.sandbox.docker_executor import DockerSandboxExecutor
+from services.sandbox.sandbox_executor import (
+    SandboxExecutor,
+    SandboxTestSuiteResult,
+)
+from utils.config import Config
+from utils.logging import get_logger
+
+logger = get_logger("neurodebug.test_runner")
 
 
 @dataclass
@@ -36,25 +48,38 @@ class TestSuiteResultData:
     test_results: list[TestResultData]
     output: str
     error: str | None
+    timeout_occurred: bool = False
+    output_truncated: bool = False
+    sandbox_error: str | None = None
 
 
 class PytestRunner:
     """
     Executes pytest test cases and records detailed results.
 
-    Uses subprocess isolation for safe test execution.
+    Delegates test execution to DockerSandboxExecutor for secure containment.
     """
 
     DEFAULT_TIMEOUT = 30.0  # seconds
 
-    def __init__(self, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        timeout: float = DEFAULT_TIMEOUT,
+        sandbox_executor: SandboxExecutor | None = None,
+    ):
         """
         Initialize the test runner.
 
         Args:
             timeout: Default timeout for test execution in seconds.
+            sandbox_executor: Optional custom SandboxExecutor instance.
         """
         self.timeout = timeout
+        if sandbox_executor is not None:
+            self.sandbox_executor = sandbox_executor
+        else:
+            docker_exec = DockerSandboxExecutor(default_timeout=self.timeout)
+            self.sandbox_executor = docker_exec
 
     def run_tests(
         self,
@@ -63,7 +88,7 @@ class PytestRunner:
         timeout: float | None = None,
     ) -> TestSuiteResultData:
         """
-        Execute pytest tests for the given code.
+        Execute pytest tests for the given code in an isolated sandbox.
 
         Args:
             code: The original Python code to test.
@@ -75,25 +100,66 @@ class PytestRunner:
         """
         exec_timeout = timeout if timeout is not None else self.timeout
 
+        # If sandbox executor is operational (or mocked), execute in sandbox
+        if self.sandbox_executor.is_available():
+            suite_res: SandboxTestSuiteResult = self.sandbox_executor.execute_pytest(
+                code=code,
+                test_code=test_code,
+                timeout=exec_timeout,
+            )
+
+            converted_results = [
+                TestResultData(
+                    test_name=t.test_name,
+                    passed=t.passed,
+                    failed=t.failed,
+                    skipped=t.skipped,
+                    duration=t.duration,
+                    error_message=t.error_message,
+                )
+                for t in suite_res.test_results
+            ]
+
+            return TestSuiteResultData(
+                total_tests=suite_res.total_tests,
+                passed=suite_res.passed,
+                failed=suite_res.failed,
+                skipped=suite_res.skipped,
+                duration=suite_res.duration,
+                test_results=converted_results,
+                output=suite_res.output,
+                error=suite_res.error,
+                timeout_occurred=suite_res.timeout_occurred,
+                output_truncated=suite_res.output_truncated,
+                sandbox_error=suite_res.sandbox_error,
+            )
+
+        # Fallback for environments where Docker daemon is not running (e.g. host testing without Docker)
+        return self._run_tests_fallback(code, test_code, exec_timeout)
+
+    def _run_tests_fallback(
+        self,
+        code: str,
+        test_code: str,
+        exec_timeout: float,
+    ) -> TestSuiteResultData:
+        """Fallback local subprocess execution when Docker daemon is not present."""
         start_time = time.time()
         test_results = []
         output = ""
         error = None
+        timeout_occurred = False
 
-        # Create temporary directory for test execution
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Write code file
             code_file = temp_path / "code_under_test.py"
             code_file.write_text(code, encoding="utf-8")
 
-            # Write test file
             test_file = temp_path / "test_code.py"
             test_file.write_text(test_code, encoding="utf-8")
 
             try:
-                # Run pytest with verbose output for detailed results
                 result = subprocess.run(
                     [
                         sys.executable,
@@ -103,7 +169,7 @@ class PytestRunner:
                         "-v",
                         "--tb=short",
                         "--no-header",
-                        "-rN",  # Disable summary for custom parsing
+                        "-rN",
                     ],
                     capture_output=True,
                     text=True,
@@ -115,16 +181,18 @@ class PytestRunner:
                 output = result.stdout + result.stderr
                 test_results = self._parse_pytest_output(output)
 
-                if result.returncode not in [0, 1]:  # 0=all passed, 1=some failed
+                if result.returncode not in [0, 1]:
                     error = f"pytest exited with code {result.returncode}"
 
-            except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
+            except subprocess.TimeoutExpired:
+                timeout_occurred = True
                 error = f"Test execution timeout after {exec_timeout}s"
+                output = error
+            except (OSError, FileNotFoundError) as exc:
+                error = f"Test execution failed: {exc}"
                 output = error
 
         duration = time.time() - start_time
-
-        # Calculate summary
         passed = sum(1 for t in test_results if t.passed)
         failed = sum(1 for t in test_results if t.failed)
         skipped = sum(1 for t in test_results if t.skipped)
@@ -138,29 +206,19 @@ class PytestRunner:
             test_results=test_results,
             output=output,
             error=error,
+            timeout_occurred=timeout_occurred,
         )
 
     def _parse_pytest_output(self, output: str) -> list[TestResultData]:
-        """
-        Parse pytest verbose output to extract individual test results.
-
-        Args:
-            output: Raw pytest output.
-
-        Returns:
-            List of TestResultData objects.
-        """
+        """Parse pytest verbose output to extract individual test results."""
         test_results = []
         lines = output.split("\n")
 
         for line in lines:
             line = line.strip()
-
-            # Ignore separators, summaries, and failure headers
             if not line or line.startswith("=") or line.startswith("_"):
                 continue
 
-            # Match pytest test case lines like: test_file.py::test_name PASSED [100%] or test_name PASSED
             if "::" in line or line.startswith("test_"):
                 parts = line.split()
                 if len(parts) >= 2:
@@ -174,7 +232,6 @@ class PytestRunner:
                     if not (passed or failed or skipped):
                         continue
 
-                    # Extract duration if available
                     duration = 0.0
                     for part in parts:
                         if part.endswith("s") and part.replace(".", "", 1).isdigit():

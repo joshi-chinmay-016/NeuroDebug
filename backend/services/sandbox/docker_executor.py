@@ -71,20 +71,50 @@ class DockerSandboxExecutor(SandboxExecutor):
         self.tmpfs_size = tmpfs_size or Config.SANDBOX_TMPFS_SIZE
         self.user = user or Config.SANDBOX_USER
 
+    _cached_available: bool | None = None
+
     def is_available(self) -> bool:
-        """Check if Docker daemon is operational."""
+        """Check if Docker daemon is operational and required sandbox image exists."""
+        if Config.SANDBOX_FORCE_FALLBACK:
+            return False
+        if DockerSandboxExecutor._cached_available is not None:
+            return DockerSandboxExecutor._cached_available
         try:
             res = subprocess.run(
-                ["docker", "info"],
+                ["docker", "ps", "-q"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=3.0,
+                timeout=1.5,
                 check=False,
             )
-            return res.returncode == 0
+            if res.returncode != 0:
+                DockerSandboxExecutor._cached_available = False
+                return False
+            err_lower = (res.stderr or "").lower()
+            if any(p in err_lower for p in ("error", "cannot connect", "failed to connect", "is not running")):
+                DockerSandboxExecutor._cached_available = False
+                return False
+
+            # Verify that the configured sandbox image is present locally
+            img_res = subprocess.run(
+                ["docker", "image", "inspect", self.image_name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1.5,
+                check=False,
+            )
+            is_ok = (img_res.returncode == 0)
+            DockerSandboxExecutor._cached_available = is_ok
+            return is_ok
         except Exception:
+            DockerSandboxExecutor._cached_available = False
             return False
+
+    @classmethod
+    def reset_availability_cache(cls) -> None:
+        """Reset the cached daemon availability state (used by unit tests)."""
+        cls._cached_available = None
 
     def _truncate_output(self, text: str) -> tuple[str, bool]:
         """Truncate text if it exceeds maximum allowable output size."""
@@ -157,6 +187,8 @@ class DockerSandboxExecutor(SandboxExecutor):
             "-e",
             "PYTHONDONTWRITEBYTECODE=1",
             "-e",
+            "PYTHONPATH=/workspace",
+            "-e",
             "TMPDIR=/tmp",
             self.image_name,
         ]
@@ -217,7 +249,7 @@ class DockerSandboxExecutor(SandboxExecutor):
             docker_cmd = self._build_docker_run_command(
                 container_name=container_name,
                 workspace_host_path=temp_dir,
-                entrypoint_args=["python3", "/workspace/main.py"],
+                entrypoint_args=["/workspace/main.py"],
             )
 
             proc = subprocess.Popen(
@@ -331,6 +363,7 @@ class DockerSandboxExecutor(SandboxExecutor):
                 container_name=container_name,
                 workspace_host_path=temp_dir,
                 entrypoint_args=[
+                    "-m",
                     "pytest",
                     "/workspace/test_code.py",
                     "-v",

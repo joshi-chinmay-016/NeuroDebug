@@ -56,6 +56,12 @@ class VerificationStatus(str, Enum):
     """Verification status enumeration."""
 
     VERIFIED = "VERIFIED"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+    SANDBOX_ERROR = "SANDBOX_ERROR"
+    NOT_VERIFIABLE = "NOT_VERIFIABLE"
+    RUNNING = "RUNNING"
+    NOT_RUN = "NOT_RUN"
     UNVERIFIED = "UNVERIFIED"
     FAILED_VERIFICATION = "FAILED_VERIFICATION"
     NO_FIX_FOUND = "NO_FIX_FOUND"

@@ -93,3 +93,13 @@ def mock_database_init(request):
             yield
     else:
         yield
+
+
+@pytest.fixture(autouse=True)
+def reset_sandbox_cache():
+    """Ensure DockerSandboxExecutor availability cache is reset before and after each test."""
+    from services.sandbox.docker_executor import DockerSandboxExecutor
+
+    DockerSandboxExecutor.reset_availability_cache()
+    yield
+    DockerSandboxExecutor.reset_availability_cache()

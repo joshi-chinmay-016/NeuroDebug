@@ -249,11 +249,15 @@ def test_docker_executor_availability_check():
     executor = DockerSandboxExecutor()
 
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+        DockerSandboxExecutor.reset_availability_cache()
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
         assert executor.is_available() is True
 
-        mock_run.return_value = MagicMock(returncode=1)
+        DockerSandboxExecutor.reset_availability_cache()
+        mock_run.return_value = MagicMock(returncode=1, stderr="error connecting")
         assert executor.is_available() is False
 
+        DockerSandboxExecutor.reset_availability_cache()
         mock_run.side_effect = Exception("Docker daemon offline")
         assert executor.is_available() is False
+        DockerSandboxExecutor.reset_availability_cache()

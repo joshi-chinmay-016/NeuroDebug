@@ -1,9 +1,11 @@
 """
 Verification Engine Service.
 
-Orchestrates execution verification of candidate patches.
-Provides structured evidence for patch correctness.
+Orchestrates execution verification of candidate patches inside isolated Docker sandboxes.
+Provides structured evidence and explicit verification states for patch correctness.
 """
+
+from __future__ import annotations
 
 import time
 from dataclasses import dataclass
@@ -18,9 +20,28 @@ logger = get_logger("neurodebug.verification_engine")
 
 
 class VerificationStatus(str, Enum):
-    """Explicit verification state machine status."""
+    """
+    Explicit verification state machine statuses.
+
+    Standard Target States:
+    - VERIFIED: Tests ran in sandbox, all passed, 0 failures, no timeout, normal exit.
+    - FAILED: Tests ran in sandbox, at least 1 failure or runtime crash.
+    - TIMEOUT: Sandbox execution exceeded configured deadline.
+    - SANDBOX_ERROR: Container infrastructure failure prevented trustworthy verification.
+    - NOT_VERIFIABLE: Missing runnable context or syntax errors prevented test execution.
+    - RUNNING: Verification currently in progress.
+    - NOT_RUN: Verification has not been initiated.
+    """
 
     VERIFIED = "VERIFIED"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+    SANDBOX_ERROR = "SANDBOX_ERROR"
+    NOT_VERIFIABLE = "NOT_VERIFIABLE"
+    RUNNING = "RUNNING"
+    NOT_RUN = "NOT_RUN"
+
+    # Backward-compatible aliases
     UNVERIFIED = "UNVERIFIED"
     FAILED_VERIFICATION = "FAILED_VERIFICATION"
     NO_FIX_FOUND = "NO_FIX_FOUND"
@@ -33,7 +54,7 @@ class VerificationStatus(str, Enum):
 
 @dataclass
 class VerificationEvidence:
-    """Evidence collected during verification."""
+    """Evidence collected during sandboxed verification."""
 
     original_code_execution: ExecutionResult
     patched_code_execution: ExecutionResult
@@ -54,14 +75,14 @@ class VerificationReport:
 
 class VerificationEngine:
     """
-    Verifies candidate patches through execution and testing.
+    Verifies candidate patches through isolated sandboxed execution and testing.
 
     Pipeline:
-    1. Execute original code
-    2. Execute patched code
-    3. Run generated tests (if available)
-    4. Compare results
-    5. Classify as VERIFIED or UNVERIFIED
+    1. Execute original code in isolated sandbox
+    2. Execute patched code in isolated sandbox
+    3. Run generated pytest suite in isolated sandbox (if available)
+    4. Compare executions and test results
+    5. Classify with explicit verification state machine
     """
 
     def __init__(
@@ -86,7 +107,7 @@ class VerificationEngine:
         test_code: str | None = None,
     ) -> VerificationReport:
         """
-        Verify a candidate patch through execution and testing.
+        Verify a candidate patch through execution and testing inside the sandbox.
 
         Args:
             original_code: The original Python code.
@@ -97,10 +118,10 @@ class VerificationEngine:
             VerificationReport with verification status and evidence.
         """
         start_time = time.time()
-        logger.info("Starting patch verification")
+        logger.info("Starting patch verification in isolated sandbox")
 
-        # Step 1: Execute original code
-        logger.info("Step 1: Executing original code")
+        # Step 1: Execute original code in sandbox
+        logger.info("Step 1: Executing original code in sandbox")
         orig_start = time.time()
         original_execution = self.execution_layer.execute_code(original_code)
         orig_duration = (time.time() - orig_start) * 1000
@@ -111,8 +132,8 @@ class VerificationEngine:
             "success" if original_execution.success else "failed",
         )
 
-        # Step 2: Execute patched code
-        logger.info("Step 2: Executing patched code")
+        # Step 2: Execute patched code in sandbox
+        logger.info("Step 2: Executing patched code in sandbox")
         patch_start = time.time()
         patched_execution = self.execution_layer.execute_code(patched_code)
         patch_duration = (time.time() - patch_start) * 1000
@@ -123,10 +144,10 @@ class VerificationEngine:
             "success" if patched_execution.success else "failed",
         )
 
-        # Step 3: Run tests if provided
+        # Step 3: Run tests in sandbox if provided
         test_results = None
         if test_code:
-            logger.info("Step 3: Running test suite")
+            logger.info("Step 3: Running pytest suite in sandbox")
             test_start = time.time()
             test_results = self.test_runner.run_tests(
                 code=patched_code, test_code=test_code
@@ -191,13 +212,6 @@ class VerificationEngine:
     ) -> dict[str, Any]:
         """
         Compare original and patched execution results.
-
-        Args:
-            original: Original code execution result.
-            patched: Patched code execution result.
-
-        Returns:
-            Dictionary with comparison metrics.
         """
         return {
             "original_success": original.success,
@@ -211,6 +225,8 @@ class VerificationEngine:
             "stdout_match": original.stdout == patched.stdout,
             "stderr_match": original.stderr == patched.stderr,
             "execution_time_delta": patched.execution_time - original.execution_time,
+            "patched_truncated": patched.output_truncated,
+            "patched_resource_limited": patched.resource_limited,
         }
 
     def _classify_verification(
@@ -221,23 +237,44 @@ class VerificationEngine:
         execution_comparison: dict[str, Any],
     ) -> tuple[VerificationStatus, str | None]:
         """
-        Classify patch as VERIFIED or UNVERIFIED based on evidence.
+        Classify patch based on explicit empirical evidence.
 
-        Args:
-            original_execution: Original code execution result.
-            patched_execution: Patched code execution result.
-            test_results: Test suite results if available.
-            execution_comparison: Execution comparison metrics.
-
-        Returns:
-            Tuple of (VerificationStatus, failure_reason).
+        Rules:
+        - SANDBOX_ERROR: Infrastructure/daemon failure before trustworthy result.
+        - TIMEOUT: Exceeded hard deadline.
+        - VERIFIED: Tests ran and passed 100%, 0 failed, normal exit.
+        - FAILED / TEST_FAILURE: Relevant tests failed or regression introduced.
+        - NOT_VERIFIABLE / UNVERIFIED: No tests provided or inconclusive execution.
         """
-        # 1. Check for timeout in patched execution
+        # 1. Check for sandbox infrastructure errors
+        if patched_execution.sandbox_error:
+            return (
+                VerificationStatus.SANDBOX_ERROR,
+                f"Sandbox infrastructure error: {patched_execution.sandbox_error}",
+            )
+        if test_results and test_results.sandbox_error:
+            return (
+                VerificationStatus.SANDBOX_ERROR,
+                f"Sandbox test harness error: {test_results.sandbox_error}",
+            )
+
+        # 2. Check for timeout
         if patched_execution.timeout_occurred:
             failure_reason = f"Patched code execution timed out after {patched_execution.execution_time:.2f}s"
             return VerificationStatus.EXECUTION_TIMEOUT, failure_reason
 
-        # 2. If tests are available, they are the primary behavioral verification method
+        if test_results and test_results.timeout_occurred:
+            failure_reason = f"Test execution timed out after {test_results.duration:.2f}s"
+            return VerificationStatus.EXECUTION_TIMEOUT, failure_reason
+
+        # 3. Check for resource limits
+        if patched_execution.resource_limited:
+            return (
+                VerificationStatus.FAILED_VERIFICATION,
+                "Patched code violated sandbox resource boundary (OOM / PID limit)",
+            )
+
+        # 4. If tests are available, they are the primary behavioral verification method
         if test_results:
             if test_results.failed > 0:
                 failure_reason = f"{test_results.failed} test(s) failed out of {test_results.total_tests}"
@@ -248,19 +285,16 @@ class VerificationEngine:
 
             if test_results.total_tests == 0:
                 failure_reason = "No tests were executed"
-                return VerificationStatus.UNVERIFIED, failure_reason
+                return VerificationStatus.NOT_VERIFIABLE, failure_reason
 
-        # 3. Without tests, use execution comparison
-        # Patch is verified if it fixes the original issue without introducing errors
+        # 5. Without tests, evaluate execution comparison
         if execution_comparison["success_improved"]:
             return VerificationStatus.VERIFIED, None
 
-        # Patch failed verification if it introduces a regression
         if execution_comparison["success_regressed"]:
             failure_reason = "Patch introduced an execution regression (original code passed, patched code failed)"
             return VerificationStatus.FAILED_VERIFICATION, failure_reason
 
-        # Patch failed verification if it still fails to execute
         if not patched_execution.success:
             if patched_execution.exit_code is not None and patched_execution.exit_code != 0:
                 failure_reason = f"Patched code failed with exit code {patched_execution.exit_code}"
@@ -268,12 +302,12 @@ class VerificationEngine:
             failure_reason = "Patched code encountered a runtime error"
             return VerificationStatus.EXECUTION_ERROR, failure_reason
 
-        # If original succeeded and patch succeeded, need more behavioral evidence
+        # If both succeeded without tests, evidence is inconclusive
         if original_execution.success and patched_execution.success:
             failure_reason = "Insufficient evidence - both original and patched code execute successfully without test assertions"
             return VerificationStatus.UNVERIFIED, failure_reason
 
-        return VerificationStatus.UNVERIFIED, "Unable to verify patch correctness"
+        return VerificationStatus.NOT_VERIFIABLE, "Unable to verify patch correctness"
 
     def _generate_execution_summary(
         self,
@@ -284,15 +318,6 @@ class VerificationEngine:
     ) -> str:
         """
         Generate human-readable execution summary.
-
-        Args:
-            original: Original execution result.
-            patched: Patched execution result.
-            test_results: Test results if available.
-            status: Verification status.
-
-        Returns:
-            Human-readable summary string.
         """
         parts = []
 
@@ -301,9 +326,11 @@ class VerificationEngine:
         parts.append(f"Patched Code: {'SUCCESS' if patched.success else 'FAILED'}")
 
         if original.timeout_occurred:
-            parts.append("Original code timed out")
+            parts.append("Original code timed out in sandbox")
         if patched.timeout_occurred:
-            parts.append("Patched code timed out")
+            parts.append("Patched code timed out in sandbox")
+        if patched.output_truncated:
+            parts.append("Output was truncated to prevent memory exhaustion")
 
         if test_results:
             parts.append(

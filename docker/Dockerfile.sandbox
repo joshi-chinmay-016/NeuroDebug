@@ -12,6 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     PYTHONHASHSEED=random \
+    PYTHONPATH=/workspace \
     TMPDIR=/tmp
 
 # Create dedicated unprivileged non-root user (UID 10001, GID 10001)

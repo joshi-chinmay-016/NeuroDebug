@@ -198,7 +198,7 @@ class PatchRanker:
                 return round(score, 1), f"Verified: Passed {passed}/{total} test assertions"
             return 95.0, "Verified: Resolved execution failure without regressions"
 
-        if status == VerificationStatus.UNVERIFIED:
+        if status in (VerificationStatus.UNVERIFIED, VerificationStatus.NOT_VERIFIABLE):
             # Succeeded syntactically and executed cleanly, but no tests were run
             return 60.0, "Unverified: Clean execution, awaiting test assertion evidence"
 
@@ -206,13 +206,13 @@ class PatchRanker:
             failed = report.evidence.test_results.failed if report.evidence.test_results else 1
             return 30.0, f"Failed Verification: {failed} test assertion(s) failed"
 
-        if status == VerificationStatus.FAILED_VERIFICATION:
+        if status in (VerificationStatus.FAILED, VerificationStatus.FAILED_VERIFICATION):
             return 25.0, f"Failed Verification: {report.failure_reason or 'Execution regression'}"
 
-        if status == VerificationStatus.EXECUTION_TIMEOUT:
+        if status in (VerificationStatus.TIMEOUT, VerificationStatus.EXECUTION_TIMEOUT):
             return 10.0, "Execution timed out"
 
-        if status == VerificationStatus.EXECUTION_ERROR:
-            return 5.0, "Execution error occurred"
+        if status in (VerificationStatus.SANDBOX_ERROR, VerificationStatus.EXECUTION_ERROR):
+            return 5.0, f"Sandbox error: {report.failure_reason or 'Execution error occurred'}"
 
         return 0.0, "Candidate rejected"
