@@ -438,7 +438,8 @@ async def get_benchmark_summary() -> dict[str, Any]:
                 "avg_latency_ms": summary.avg_total_duration_ms,
             }
         },
-        "category_metrics": summary.category_metrics,
+        "category_metrics": summary.category_breakdown,
+        "category_breakdown": summary.category_breakdown,
     }
 
 

@@ -31,11 +31,22 @@ async def get_current_user_optional(
     Returns:
         User payload dict if token valid, None otherwise.
     """
-    if not credentials:
+    token = None
+    if isinstance(credentials, HTTPAuthorizationCredentials):
+        token = credentials.credentials
+    elif isinstance(credentials, str):
+        token = credentials
+    else:
+        # Fallback to direct inspection of the request Authorization header
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+
+    if not token:
         return None
 
     try:
-        payload = AuthService.verify_access_token(credentials.credentials)
+        payload = AuthService.verify_access_token(token)
         return {
             "user_id": uuid.UUID(payload["sub"]),
             "email": payload["email"],
@@ -63,7 +74,17 @@ async def get_current_user_required(
     Raises:
         HTTPException: If token is missing or invalid.
     """
-    if not credentials:
+    token = None
+    if isinstance(credentials, HTTPAuthorizationCredentials):
+        token = credentials.credentials
+    elif isinstance(credentials, str):
+        token = credentials
+    else:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+
+    if not token:
         logger.warning("Missing authorization header")
         raise HTTPException(
             status_code=401,
@@ -74,7 +95,7 @@ async def get_current_user_required(
         )
 
     try:
-        payload = AuthService.verify_access_token(credentials.credentials)
+        payload = AuthService.verify_access_token(token)
         return {
             "user_id": uuid.UUID(payload["sub"]),
             "email": payload["email"],
