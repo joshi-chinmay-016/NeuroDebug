@@ -145,6 +145,12 @@ export default function VerificationPanel({ verificationReport }) {
 
       <div className="verification-summary">
         <div className="summary-row">
+          <span className="summary-label">Sandbox Security:</span>
+          <span className="summary-value font-mono font-semibold text-[var(--green)] flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5" /> Docker Ephemeral Container
+          </span>
+        </div>
+        <div className="summary-row">
           <span className="summary-label">State Machine:</span>
           <span className="summary-value font-mono font-semibold">
             {verification_status}
@@ -154,6 +160,18 @@ export default function VerificationPanel({ verificationReport }) {
           <span className="summary-label">Verification Time:</span>
           <span className="summary-value">{(runtime * 1000).toFixed(0)}ms</span>
         </div>
+        {evidence?.patched_code_execution?.resource_limited && (
+          <div className="summary-row summary-row-error">
+            <span className="summary-label">Resource Violation:</span>
+            <span className="summary-value">Exceeded container memory/PID boundaries</span>
+          </div>
+        )}
+        {evidence?.patched_code_execution?.output_truncated && (
+          <div className="summary-row text-amber-400">
+            <span className="summary-label">Output Buffer:</span>
+            <span className="summary-value">Truncated to 50KB safety limit</span>
+          </div>
+        )}
         {failure_reason && (
           <div className="summary-row summary-row-error">
             <span className="summary-label">State Rationale:</span>

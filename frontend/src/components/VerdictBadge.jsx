@@ -86,6 +86,24 @@ export default function VerdictBadge({ status, size = 'default', showIcon = true
       Icon = HelpCircle
       break
 
+    case 'SANDBOX_ERROR':
+      color = 'text-[var(--red)] border-[var(--red)]/30 bg-[var(--red)]/10 shadow-sm shadow-[var(--red)]/10'
+      label = 'SANDBOX ERROR'
+      Icon = ShieldAlert
+      break
+
+    case 'NOT_VERIFIABLE':
+      color = 'text-[var(--amber)] border-[var(--amber)]/30 bg-[var(--amber)]/10 shadow-sm shadow-[var(--amber)]/10'
+      label = 'NOT VERIFIABLE'
+      Icon = HelpCircle
+      break
+
+    case 'NOT_RUN':
+      color = 'text-[var(--dim)] border-white/10 bg-white/5'
+      label = 'NOT RUN'
+      Icon = Clock
+      break
+
     case 'VERIFICATION_UNAVAILABLE':
       color = 'text-[var(--dim)] border-white/10 bg-white/5'
       label = 'VERIFICATION UNAVAILABLE'
