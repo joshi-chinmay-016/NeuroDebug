@@ -72,6 +72,7 @@ class AnalyticsResponse(BaseModel):
 # ──────────────────────────────────────────────────────────────────
 
 
+@router.get("", response_model=AnalyticsResponse)
 @router.get("/analytics", response_model=AnalyticsResponse)
 async def get_analytics(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),

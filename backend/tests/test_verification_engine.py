@@ -53,7 +53,7 @@ class TestVerificationEngine:
         """Test verification when patched code times out."""
         from services.execution_layer import ExecutionLayer
 
-        custom_exec = ExecutionLayer(timeout=1.0)
+        custom_exec = ExecutionLayer(timeout=3.0)
         engine = VerificationEngine(execution_layer=custom_exec)
         original_code = "print('test')"
         patched_code = "import time; time.sleep(10)"

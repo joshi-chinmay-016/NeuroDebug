@@ -65,6 +65,7 @@ class ApiKeyResponse(BaseModel):
 # ──────────────────────────────────────────────────────────────────
 
 
+@router.get("", response_model=ProfileResponse)
 @router.get("/profile", response_model=ProfileResponse)
 async def get_profile(current_user: dict = Depends(get_current_user_required)):
     """
@@ -105,6 +106,7 @@ async def get_profile(current_user: dict = Depends(get_current_user_required)):
             )
 
 
+@router.patch("")
 @router.patch("/profile")
 async def update_profile(
     request: UpdateProfileRequest,
