@@ -159,3 +159,33 @@ def log_execution_result(
         execution_time,
         timeout_occurred,
     )
+
+
+def log_sandbox_telemetry(
+    logger: logging.Logger,
+    job_id: str,
+    status: str,
+    duration_ms: float,
+    exit_code: int | None = None,
+    test_count: int = 0,
+    passed_count: int = 0,
+    failed_count: int = 0,
+    output_truncated: bool = False,
+    timeout_occurred: bool = False,
+    resource_limited: bool = False,
+) -> None:
+    """Record safe telemetry for an isolated sandbox workload."""
+    safe_job_id = job_id[:16] if job_id else "unknown"
+    logger.info(
+        "Sandbox Telemetry: job_id=%s status=%s duration_ms=%.2f exit_code=%s tests=%d passed=%d failed=%d truncated=%s timeout=%s oom=%s",
+        safe_job_id,
+        status,
+        duration_ms,
+        exit_code,
+        test_count,
+        passed_count,
+        failed_count,
+        output_truncated,
+        timeout_occurred,
+        resource_limited,
+    )
