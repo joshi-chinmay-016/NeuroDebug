@@ -4,6 +4,7 @@ Sandbox Execution Package.
 Exports the core interfaces, exceptions, and executors for sandboxed execution.
 """
 
+from services.sandbox.docker_executor import DockerSandboxExecutor
 from services.sandbox.fake_executor import FakeSandboxExecutor
 from services.sandbox.sandbox_executor import (
     SandboxCleanupError,
@@ -21,6 +22,7 @@ from services.sandbox.sandbox_executor import (
 )
 
 __all__ = [
+    "DockerSandboxExecutor",
     "FakeSandboxExecutor",
     "SandboxCleanupError",
     "SandboxConfigurationError",

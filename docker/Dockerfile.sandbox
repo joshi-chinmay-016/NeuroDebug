@@ -1,0 +1,37 @@
+# ──────────────────────────────────────────────────────────────────
+# NeuroDebug — Hardened Sandbox Execution Image
+# Base: python:3.10-slim (Minimal, Isolated, Non-Root)
+# ──────────────────────────────────────────────────────────────────
+FROM python:3.10-slim AS sandbox
+
+LABEL maintainer="neurodebug" \
+      description="Hardened minimal sandbox image for isolated Python and pytest execution"
+
+# Security & runtime environment flags
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    TMPDIR=/tmp
+
+# Create dedicated unprivileged non-root user (UID 10001, GID 10001)
+RUN groupadd -g 10001 sandboxgroup && \
+    useradd -u 10001 -g sandboxgroup -s /sbin/nologin -M -d /tmp sandboxuser
+
+# Install pinned pytest
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir pytest==8.3.3
+
+# Clean up apt/pip caches and remove package managers/compilers to minimize attack surface
+RUN rm -rf /root/.cache /tmp/* /var/tmp/* /var/lib/apt/lists/*
+
+# Create working directory with restricted permissions
+WORKDIR /workspace
+RUN chown -R 10001:10001 /workspace
+
+# Switch permanently to unprivileged non-root user
+USER 10001:10001
+
+# Entrypoint default to python3
+ENTRYPOINT ["python3"]
+CMD ["--version"]

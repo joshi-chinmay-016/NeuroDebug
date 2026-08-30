@@ -52,6 +52,18 @@ class Config:
     )
     JWT_ALGORITHM: str = "HS256"
 
+    # Docker Sandbox Configuration
+    SANDBOX_IMAGE: str = os.getenv("SANDBOX_IMAGE", "neurodebug-sandbox:latest")
+    SANDBOX_TIMEOUT_SECONDS: float = float(os.getenv("SANDBOX_TIMEOUT_SECONDS", "10.0"))
+    SANDBOX_MAX_TIMEOUT_SECONDS: float = float(os.getenv("SANDBOX_MAX_TIMEOUT_SECONDS", "30.0"))
+    SANDBOX_MEMORY_LIMIT: str = os.getenv("SANDBOX_MEMORY_LIMIT", "256m")
+    SANDBOX_CPU_LIMIT: str = os.getenv("SANDBOX_CPU_LIMIT", "1.0")
+    SANDBOX_PIDS_LIMIT: int = int(os.getenv("SANDBOX_PIDS_LIMIT", "64"))
+    SANDBOX_MAX_OUTPUT_BYTES: int = int(os.getenv("SANDBOX_MAX_OUTPUT_BYTES", "50000"))
+    SANDBOX_TMPFS_SIZE: str = os.getenv("SANDBOX_TMPFS_SIZE", "64m")
+    SANDBOX_USER: str = os.getenv("SANDBOX_USER", "10001:10001")
+    SANDBOX_FORCE_FALLBACK: bool = os.getenv("SANDBOX_FORCE_FALLBACK", "false").lower() == "true"
+
     @classmethod
     def get_groq_api_key(cls, user_key: str | None = None) -> str | None:
         """Resolve Groq API key from user key or environment."""
