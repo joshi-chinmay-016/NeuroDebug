@@ -84,10 +84,14 @@ async def _ensure_database_exists() -> None:
         import asyncpg
 
         parsed = urlparse(Config.DATABASE_URL.replace("postgresql+asyncpg://", "http://"))
+        host = parsed.hostname or "localhost"
+        if host not in ("localhost", "127.0.0.1"):
+            # Remote cloud databases (Render, Supabase, Neon) are pre-provisioned
+            return
+
         db_name = parsed.path.lstrip("/")
         user = parsed.username
         password = parsed.password
-        host = parsed.hostname or "localhost"
         port = parsed.port or 5432
 
         # Connect to default postgres DB
@@ -120,7 +124,8 @@ async def _seed_subscription_plans() -> None:
             {
                 "name": "Guest",
                 "tier": SubscriptionTier.GUEST.value,
-                "price": 0.0,
+                "price_monthly": 0,
+                "max_projects": 1,
                 "daily_request_limit": Config.DEFAULT_GUEST_LIMIT,  # 1 request / day
                 "features": {
                     "ast_parsing": True,
@@ -132,7 +137,8 @@ async def _seed_subscription_plans() -> None:
             {
                 "name": "Free",
                 "tier": SubscriptionTier.FREE.value,
-                "price": 0.0,
+                "price_monthly": 0,
+                "max_projects": 3,
                 "daily_request_limit": Config.DEFAULT_FREE_LIMIT,  # 5 requests / day
                 "features": {
                     "ast_parsing": True,
@@ -148,7 +154,8 @@ async def _seed_subscription_plans() -> None:
             {
                 "name": "Pro",
                 "tier": SubscriptionTier.PRO.value,
-                "price": 19.0,
+                "price_monthly": 1900,  # $19.00 in cents
+                "max_projects": 10,
                 "daily_request_limit": Config.DEFAULT_PRO_LIMIT,  # 20 requests / day
                 "features": {
                     "ast_parsing": True,
@@ -175,13 +182,15 @@ async def _seed_subscription_plans() -> None:
                 if tier in existing_plans:
                     plan = existing_plans[tier]
                     plan.daily_request_limit = plan_data["daily_request_limit"]
+                    plan.max_projects = plan_data["max_projects"]
+                    plan.price_monthly = plan_data["price_monthly"]
                 else:
                     new_plan = SubscriptionPlan(
                         id=uuid.uuid4(),
                         name=plan_data["name"],
                         tier=plan_data["tier"],
-                        price=plan_data["price"],
-                        billing_period="monthly" if plan_data["price"] > 0 else "lifetime",
+                        price_monthly=plan_data["price_monthly"],
+                        max_projects=plan_data["max_projects"],
                         daily_request_limit=plan_data["daily_request_limit"],
                         features=plan_data["features"],
                         is_active=True,

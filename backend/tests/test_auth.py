@@ -71,47 +71,60 @@ class TestAuthEndpoints:
     """Test authentication API endpoints."""
 
     @pytest.mark.asyncio
-    async def test_register_and_login_flow(self, async_client: httpx.AsyncClient):
-        """Test complete registration and login flow."""
-        unique_email = f"user_{uuid.uuid4().hex[:8]}@example.com"
-        password = "SecurePassword123!"
+    async def test_register_and_login_flow(
+        self, async_client: httpx.AsyncClient, db_session: AsyncSession
+    ):
+        """Test complete registration and login flow using isolated db session."""
+        from contextlib import asynccontextmanager
+        from unittest.mock import patch
 
-        # Register
-        reg_response = await async_client.post(
-            "/auth/register",
-            json={
-                "email": unique_email,
-                "password": password,
-                "display_name": "Test Engineer",
-            },
-        )
+        @asynccontextmanager
+        async def mock_get_db():
+            yield db_session
 
-        assert reg_response.status_code == 201
-        data = reg_response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["email"] == unique_email
-        assert data["tier"] == "free"
+        with (
+            patch("routes.auth.get_db_session", mock_get_db),
+            patch("routes.workspace.get_db_session", mock_get_db),
+        ):
+            unique_email = f"user_{uuid.uuid4().hex[:8]}@example.com"
+            password = "SecurePassword123!"
 
-        # Login
-        login_response = await async_client.post(
-            "/auth/login",
-            json={"email": unique_email, "password": password},
-        )
+            # Register
+            reg_response = await async_client.post(
+                "/auth/register",
+                json={
+                    "email": unique_email,
+                    "password": password,
+                    "display_name": "Test Engineer",
+                },
+            )
 
-        assert login_response.status_code == 200
-        login_data = login_response.json()
-        assert "access_token" in login_data
-        assert login_data["email"] == unique_email
+            assert reg_response.status_code == 201
+            data = reg_response.json()
+            assert "access_token" in data
+            assert "refresh_token" in data
+            assert data["email"] == unique_email
+            assert data["tier"] == "free"
 
-        # Access Protected Route with Token
-        access_token = login_data["access_token"]
-        projects_response = await async_client.get(
-            "/workspace/projects",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        assert projects_response.status_code == 200
+            # Login
+            login_response = await async_client.post(
+                "/auth/login",
+                json={"email": unique_email, "password": password},
+            )
 
-        # Protected route without token
-        unauth_response = await async_client.get("/workspace/projects")
-        assert unauth_response.status_code == 401
+            assert login_response.status_code == 200
+            login_data = login_response.json()
+            assert "access_token" in login_data
+            assert login_data["email"] == unique_email
+
+            # Access Protected Route with Token
+            access_token = login_data["access_token"]
+            projects_response = await async_client.get(
+                "/workspace/projects",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert projects_response.status_code == 200
+
+            # Protected route without token
+            unauth_response = await async_client.get("/workspace/projects")
+            assert unauth_response.status_code == 401
