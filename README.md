@@ -81,10 +81,10 @@ graph TD
     AgreementAnalyzer --> PatchGen[Multi-Candidate Patch Generator]
     PatchGen --> PatchRanker[Evidence-Based Patch Ranker]
     
-    PatchRanker --> SubprocessExec[Hardened Subprocess Sandbox]
-    SubprocessExec --> PytestRunner[Pytest Assertion Verification]
+    PatchRanker --> DockerSandboxExec[Isolated Docker Sandbox (--network none, --read-only, non-root UID 10001)]
+    DockerSandboxExec --> PytestRunner[Pytest Assertion Verification]
     
-    PytestRunner --> VerifStateMachine[9-State Verification State Machine]
+    PytestRunner --> VerifStateMachine[Explicit Verification State Machine]
     VerifStateMachine --> APIResponse[Structured Debug Response]
     APIResponse --> PostgresDB[(Authoritative PostgreSQL DB)]
     
@@ -93,21 +93,32 @@ graph TD
     style GroqLLM fill:#1A1B20,stroke:#F2B84B,stroke-width:1.5px,color:#F1F2F4
     style AgreementAnalyzer fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
     style PatchRanker fill:#131418,stroke:#F2B84B,stroke-width:2px,color:#F1F2F4
-    style SubprocessExec fill:#1A1B20,stroke:#F2555A,stroke-width:1.5px,color:#F1F2F4
+    style DockerSandboxExec fill:#1A1B20,stroke:#3FE08A,stroke-width:1.5px,color:#F1F2F4
     style VerifStateMachine fill:#131418,stroke:#3FE08A,stroke-width:2px,color:#F1F2F4
     style PostgresDB fill:#0C0D10,stroke:#3FE08A,stroke-width:2px,color:#3FE08A
 ```
 
-### 9-State Explicit Verification State Machine
+### Docker Sandbox Secure Execution Engine
+
+For comprehensive security documentation, threat model, and isolation specs, see [`docs/docker_sandbox_architecture.md`](docs/docker_sandbox_architecture.md).
+
+- **Complete Air-Gap Network Isolation**: `--network none` blocks SSRF, reverse shells, exfiltration, and socket scanning.
+- **Root Filesystem Immutability**: `--read-only` root filesystem with non-executable memory tmpfs at `/tmp`.
+- **Capability Stripping & Non-Root**: All Linux kernel capabilities dropped (`--cap-drop ALL`), `no-new-privileges:true`, and unprivileged UID `10001:10001`.
+- **Strict Resource Boundaries**: CPU (1.0 core), Memory (256MB, swap disabled), PID limits (64), 50KB bounded output buffer, and hard timeouts.
+- **15-Scenario Security Suite**: Validated against infinite loops, memory bombs, fork bombs, network scans, secret exfiltration, path traversals, and malicious pytest fixtures.
+
+### Verification State Machine
 
 ```mermaid
 stateDiagram-v2
     [*] --> CandidatePatch
     CandidatePatch --> INVALID_PATCH : AST Syntax Error
-    CandidatePatch --> SubprocessExecution : Syntax Valid
+    CandidatePatch --> DockerSandboxExecution : Syntax Valid
     
-    SubprocessExecution --> EXECUTION_TIMEOUT : Timeout > 10s
-    SubprocessExecution --> EXECUTION_ERROR : Subprocess Crash
+    DockerSandboxExecution --> EXECUTION_TIMEOUT : Timeout Exceeded
+    DockerSandboxExecution --> SANDBOX_ERROR : Infrastructure Fault
+    DockerSandboxExecution --> FAILED_VERIFICATION : Resource Limit Violated (OOM/PID)
     SubprocessExecution --> FAILED_VERIFICATION : Regression (Original Pass, Patch Fail)
     
     SubprocessExecution --> TestSuiteEvaluation : Clean Execution
