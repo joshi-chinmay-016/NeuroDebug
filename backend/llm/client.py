@@ -164,19 +164,21 @@ class GroqClient:
         """
         Parse LLM response as Python code, extracting clean code blocks.
         """
+        cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
         # Match ```python ... ``` or ``` ... ```
-        match = re.search(r"```(?:python)?\s*\n?(.*?)```", raw, re.DOTALL)
+        match = re.search(r"```(?:python)?\s*\n?(.*?)```", cleaned, re.DOTALL)
         if match:
             return match.group(1).strip()
-        return raw.strip()
+        return cleaned.strip()
 
     @staticmethod
     def _parse_json_response(raw: str) -> dict[str, Any]:
         """
         Parse LLM response as JSON, extracting json blocks and objects cleanly.
         """
-        match = re.search(r"```(?:json)?\s*\n?(.*?)```", raw, re.DOTALL)
-        content = match.group(1).strip() if match else raw.strip()
+        cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        match = re.search(r"```(?:json)?\s*\n?(.*?)```", cleaned, re.DOTALL)
+        content = match.group(1).strip() if match else cleaned.strip()
 
         # If not starting directly with {, find the outer JSON object
         if not content.startswith("{"):

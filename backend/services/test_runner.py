@@ -156,8 +156,12 @@ class PytestRunner:
             code_file = temp_path / "code_under_test.py"
             code_file.write_text(code, encoding="utf-8")
 
+            clean_test_code = test_code
+            if "from code_under_test" not in test_code and "import code_under_test" not in test_code:
+                clean_test_code = "from code_under_test import *\n\n" + test_code
+
             test_file = temp_path / "test_code.py"
-            test_file.write_text(test_code, encoding="utf-8")
+            test_file.write_text(clean_test_code, encoding="utf-8")
 
             try:
                 result = subprocess.run(

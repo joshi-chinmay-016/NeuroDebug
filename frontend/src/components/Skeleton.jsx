@@ -1,18 +1,9 @@
-import { motion } from 'framer-motion'
 import { cn } from '../lib/utils'
 
 export function Skeleton({ className, ...props }) {
   return (
-    <motion.div
-      animate={{
-        opacity: [0.4, 0.9, 0.4],
-      }}
-      transition={{
-        duration: 1.5,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      }}
-      className={cn('bg-[var(--surface-2)] border border-[var(--line)] rounded-md', className)}
+    <div
+      className={cn('animate-pulse bg-[var(--surface-2)] border border-[var(--line)] rounded-md', className)}
       {...props}
     />
   )

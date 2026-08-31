@@ -348,7 +348,7 @@ export default function VerificationCore3D({ onStateChange } = {}) {
       particleMaterial.dispose()
       renderer.dispose()
     }
-  }, [])
+  }, [hasWebGL])
 
   if (!hasWebGL) {
     return (

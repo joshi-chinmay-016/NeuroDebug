@@ -48,7 +48,13 @@ export default function CommandPalette() {
   const handleKeyDown = useCallback((e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
-      setIsOpen(prev => !prev)
+      setIsOpen((prev) => {
+        if (!prev) {
+          setSelectedIndex(0)
+          setQuery('')
+        }
+        return !prev
+      })
     }
     if (e.key === 'Escape') {
       setIsOpen(false)
@@ -74,13 +80,6 @@ export default function CommandPalette() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
-
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedIndex(0)
-      setQuery('')
-    }
-  }, [isOpen])
 
   const executeCommand = (command) => {
     command.action()

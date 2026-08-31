@@ -7,7 +7,10 @@ from services.test_runner import PytestRunner
 
 
 def test_run_tests_parses_successful_pytest_output():
-    runner = PytestRunner(timeout=5.0)
+    from unittest.mock import MagicMock
+    mock_sandbox = MagicMock()
+    mock_sandbox.is_available.return_value = False
+    runner = PytestRunner(timeout=5.0, sandbox_executor=mock_sandbox)
 
     completed_process = CompletedProcess(
         args=["pytest"],

@@ -5,6 +5,14 @@ FastAPI server with clean architecture for neuro-symbolic code debugging.
 Includes PostgreSQL integration, session management, and usage limiting.
 """
 
+import sys
+from pathlib import Path
+
+# Prepend backend directory to sys.path to enable top-level module resolution when running from repo root
+_backend_dir = str(Path(__file__).resolve().parent)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 import time
 import uuid
 from contextlib import asynccontextmanager

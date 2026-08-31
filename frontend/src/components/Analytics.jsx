@@ -8,7 +8,6 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true)
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const todayIdx = new Date().getDay()
 
   // Generate last 7 days labels ending with today
   const last7Days = Array.from({ length: 7 }, (_, i) => {

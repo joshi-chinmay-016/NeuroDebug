@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { FolderGit2, Plus, ArrowRight, Search, X, Trash2, CheckCircle2, AlertCircle, Lock, ShieldCheck } from 'lucide-react'
 import StatusDot from './StatusDot'
@@ -6,7 +6,7 @@ import workspaceService from '../services/workspaceService'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Projects() {
-  const { user, isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [isCreating, setIsCreating] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [projectDesc, setProjectDesc] = useState('')
@@ -15,7 +15,7 @@ export default function Projects() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false)
       return
@@ -33,11 +33,11 @@ export default function Projects() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAuthenticated])
 
   useEffect(() => {
     loadProjects()
-  }, [isAuthenticated])
+  }, [loadProjects])
 
   const handleCreateProject = async (e) => {
     e.preventDefault()

@@ -16,7 +16,7 @@ class Config:
     """Application configuration."""
 
     # Groq API Configuration
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
     GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
     GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
 

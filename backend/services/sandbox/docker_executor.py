@@ -355,8 +355,12 @@ class DockerSandboxExecutor(SandboxExecutor):
             code_file = Path(temp_dir) / "code_under_test.py"
             code_file.write_text(code, encoding="utf-8")
 
+            clean_test_code = test_code
+            if "from code_under_test" not in test_code and "import code_under_test" not in test_code:
+                clean_test_code = "from code_under_test import *\n\n" + test_code
+
             test_file = Path(temp_dir) / "test_code.py"
-            test_file.write_text(test_code, encoding="utf-8")
+            test_file.write_text(clean_test_code, encoding="utf-8")
 
             # Build Docker command to run pytest
             docker_cmd = self._build_docker_run_command(

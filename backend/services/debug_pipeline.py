@@ -217,9 +217,19 @@ class DebugPipeline:
             # 2. LLM neural candidate (if client available)
             if resolved_api_key and Config.validate_api_key(resolved_api_key):
                 try:
+                    effective_issues = list(rule_issues)
+                    if not effective_issues and llm_analysis and llm_analysis.get("error_type") not in ("Clean", "None"):
+                        effective_issues.append({
+                            "rule_id": "LLM-001",
+                            "severity": "error",
+                            "category": llm_analysis.get("error_type", "LogicError"),
+                            "message": llm_analysis.get("explanation", "Logic or runtime issue detected"),
+                            "line": None,
+                        })
+
                     patch_resp = await self.patch_generator.generate_patch(
                         code=code,
-                        symbolic_issues=rule_issues,
+                        symbolic_issues=effective_issues,
                         api_key=resolved_api_key,
                     )
                     telemetry.llm_calls += 1

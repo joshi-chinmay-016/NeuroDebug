@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { User, Shield, Sliders, Check, Key, Moon, Sun, Lock } from 'lucide-react'
+import React, { useState } from 'react'
+import { User, Shield, Check, Key } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import profileService from '../services/profileService'
 
@@ -9,7 +9,6 @@ export default function Settings() {
   const [name, setName] = useState(() => user?.display_name || '')
   const [email, setEmail] = useState(() => user?.email || '')
   const [groqKey, setGroqKey] = useState('')
-  const [theme, setTheme] = useState('dark')
 
   const [prevUserId, setPrevUserId] = useState(user?.id)
   if (user && user.id !== prevUserId) {

@@ -1,28 +1,36 @@
-import { useRef, useMemo, useEffect } from 'react'
+import { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Points, PointMaterial } from '@react-three/drei'
-import * as THREE from 'three'
+
+function createPseudoRandom(initialSeed = 1337) {
+  let s = initialSeed
+  return () => {
+    s = (s * 16807) % 2147483647
+    return (s - 1) / 2147483646
+  }
+}
 
 function NeuralNetworkParticles({ count = 2000 }) {
   const ref = useRef()
   const sphere = useMemo(() => {
+    const random = createPseudoRandom(42)
     const positions = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)
     
     for (let i = 0; i < count; i++) {
       const i3 = i * 3
-      const radius = 10 + Math.random() * 20
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
+      const radius = 10 + random() * 20
+      const theta = random() * Math.PI * 2
+      const phi = Math.acos(2 * random() - 1)
       
       positions[i3] = radius * Math.sin(phi) * Math.cos(theta)
       positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
       positions[i3 + 2] = radius * Math.cos(phi)
       
       // Gradient from blue to purple
-      colors[i3] = 0.2 + Math.random() * 0.3 // R
-      colors[i3 + 1] = 0.3 + Math.random() * 0.4 // G
-      colors[i3 + 2] = 0.8 + Math.random() * 0.2 // B
+      colors[i3] = 0.2 + random() * 0.3 // R
+      colors[i3 + 1] = 0.3 + random() * 0.4 // G
+      colors[i3 + 2] = 0.8 + random() * 0.2 // B
     }
     
     return { positions, colors }
@@ -54,14 +62,15 @@ function NeuralNetworkParticles({ count = 2000 }) {
 function NeuralConnections({ count = 100 }) {
   const linesRef = useRef()
   const lines = useMemo(() => {
+    const random = createPseudoRandom(99)
     const positions = []
     for (let i = 0; i < count; i++) {
-      const x1 = (Math.random() - 0.5) * 30
-      const y1 = (Math.random() - 0.5) * 30
-      const z1 = (Math.random() - 0.5) * 30
-      const x2 = x1 + (Math.random() - 0.5) * 10
-      const y2 = y1 + (Math.random() - 0.5) * 10
-      const z2 = z1 + (Math.random() - 0.5) * 10
+      const x1 = (random() - 0.5) * 30
+      const y1 = (random() - 0.5) * 30
+      const z1 = (random() - 0.5) * 30
+      const x2 = x1 + (random() - 0.5) * 10
+      const y2 = y1 + (random() - 0.5) * 10
+      const z2 = z1 + (random() - 0.5) * 10
       positions.push(x1, y1, z1, x2, y2, z2)
     }
     return new Float32Array(positions)

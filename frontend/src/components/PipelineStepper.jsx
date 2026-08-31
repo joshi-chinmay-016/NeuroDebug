@@ -1,5 +1,4 @@
-import React from 'react'
-import { Check, Loader2, X, AlertCircle } from 'lucide-react'
+import { Check, Loader2, X } from 'lucide-react'
 
 /**
  * 5-node Pipeline Stepper
@@ -31,7 +30,7 @@ export default function PipelineStepper({
         {/* Background Connecting Line */}
         <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-[1px] bg-[var(--line)] z-0" />
 
-        {stages.map((stage, idx) => {
+        {stages.map((stage) => {
           const isDone = currentStage > stage.id || currentStage === 6
           const isActive = currentStage === stage.id && isExecuting
           const isFailed = currentStage === stage.id && !isExecuting && verdict === 'FAILED'
