@@ -73,6 +73,37 @@ class TestDebugSessionRepository:
         assert session.error_type == "NameError"
 
     @pytest.mark.asyncio
+    async def test_create_debug_session_with_patch_and_verification(
+        self,
+        session_repository: DebugSessionRepository,
+        test_user: User,
+        test_project: Project,
+    ):
+        """Test creating a debug session with candidate patch and verification report."""
+        session = await session_repository.create_debug_session(
+            session_id="test-session-with-patch",
+            code="def add(a, b):\n    return a - b",
+            user_id=test_user.id,
+            project_id=test_project.id,
+            error_type="LogicError",
+            candidate_patch={
+                "original_code": "def add(a, b):\n    return a - b",
+                "patched_code": "def add(a, b):\n    return a + b",
+                "diff": "+ return a + b\n- return a - b",
+                "validation_passed": True,
+                "explanation": "Fixed operator sign",
+            },
+            verification_report={
+                "verification_status": "VERIFIED",
+                "execution_summary": "Tests passed 1/1",
+                "runtime_seconds": 1,
+            },
+        )
+
+        assert session.id is not None
+        assert session.error_type == "LogicError"
+
+    @pytest.mark.asyncio
     async def test_get_session_by_id(
         self,
         session_repository: DebugSessionRepository,

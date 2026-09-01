@@ -146,10 +146,12 @@ class SessionService:
 
         if user_id:
             # Authenticated user - determine tier from user
-            user = await self.user_repo.get_by_id(user_id)
-            if user and user.subscription_plan:
-                tier = user.subscription_plan.tier
-            else:
+            tier = SubscriptionTier.FREE.value
+            try:
+                user = await self.user_repo.get_by_id(user_id)
+                if user and user.subscription_plan:
+                    tier = user.subscription_plan.tier
+            except Exception:
                 tier = SubscriptionTier.FREE.value
         else:
             # Guest user
@@ -212,8 +214,11 @@ class SessionService:
         await self.user_repo.update_last_login(user_id)
 
         tier = SubscriptionTier.FREE.value
-        if user.subscription_plan:
-            tier = user.subscription_plan.tier
+        try:
+            if user.subscription_plan:
+                tier = user.subscription_plan.tier
+        except Exception:
+            tier = SubscriptionTier.FREE.value
 
         logger.info(
             "Session upgraded: old_session=%s new_session=%s user_id=%s tier=%s",

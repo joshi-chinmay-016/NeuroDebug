@@ -246,9 +246,12 @@ async def login(request: Request, response: Response, login_request: LoginReques
                 )
 
             # Determine user tier
-            tier = SubscriptionTier.GUEST.value
-            if user.subscription_plan:
-                tier = user.subscription_plan.tier
+            tier = SubscriptionTier.FREE.value
+            try:
+                if user.subscription_plan:
+                    tier = user.subscription_plan.tier
+            except Exception:
+                tier = SubscriptionTier.FREE.value
 
             # Update last login
             await user_repo.update_last_login(user.id)
@@ -370,9 +373,12 @@ async def refresh_token(
                 )
 
             # Determine user tier
-            tier = SubscriptionTier.GUEST.value
-            if user.subscription_plan:
-                tier = user.subscription_plan.tier
+            tier = SubscriptionTier.FREE.value
+            try:
+                if user.subscription_plan:
+                    tier = user.subscription_plan.tier
+            except Exception:
+                tier = SubscriptionTier.FREE.value
 
             # Generate new tokens
             access_token = AuthService.create_access_token(
@@ -468,9 +474,12 @@ async def get_current_user(request: Request):
                 )
 
             # Determine user tier
-            tier = SubscriptionTier.GUEST.value
-            if user.subscription_plan:
-                tier = user.subscription_plan.tier
+            tier = SubscriptionTier.FREE.value
+            try:
+                if user.subscription_plan:
+                    tier = user.subscription_plan.tier
+            except Exception:
+                tier = SubscriptionTier.FREE.value
 
             return UserResponse(
                 user_id=user.id,

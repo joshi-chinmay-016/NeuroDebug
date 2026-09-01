@@ -5,6 +5,7 @@ import { cn } from '../lib/utils'
 
 const NotificationContext = createContext(null)
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNotification = () => {
   const context = useContext(NotificationContext)
   if (!context) {

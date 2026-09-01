@@ -16,10 +16,8 @@ import StatusDot from './StatusDot'
 import VerdictBadge from './VerdictBadge'
 import historyService from '../services/historyService'
 import workspaceService from '../services/workspaceService'
-import { useAuth } from '../contexts/AuthContext'
 
 export default function Dashboard() {
-  const { user } = useAuth()
   const [sessions, setSessions] = useState([])
   const [projectCount, setProjectCount] = useState(0)
   const [loading, setLoading] = useState(true)

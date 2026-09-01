@@ -6,6 +6,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import User
@@ -24,9 +25,26 @@ class UserRepository(BaseRepository[User, Any, Any]):
         """
         super().__init__(User, session)
 
+    async def get_by_id(self, id: uuid.UUID, include_deleted: bool = False) -> User | None:
+        """
+        Get user by ID with eagerly loaded subscription plan.
+
+        Args:
+            id: User UUID.
+            include_deleted: Whether to include soft-deleted records.
+
+        Returns:
+            User instance or None.
+        """
+        query = select(User).options(selectinload(User.subscription_plan)).where(User.id == id)
+        if not include_deleted and hasattr(User, "deleted_at"):
+            query = query.where(User.deleted_at.is_(None))
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
     async def get_by_email(self, email: str) -> User | None:
         """
-        Get user by email address.
+        Get user by email address with eagerly loaded subscription plan.
 
         Args:
             email: User email address.
@@ -34,7 +52,11 @@ class UserRepository(BaseRepository[User, Any, Any]):
         Returns:
             User instance or None.
         """
-        result = await self.session.execute(select(User).where(User.email == email))
+        result = await self.session.execute(
+            select(User)
+            .options(selectinload(User.subscription_plan))
+            .where(User.email == email)
+        )
         return result.scalar_one_or_none()
 
     async def create_user(

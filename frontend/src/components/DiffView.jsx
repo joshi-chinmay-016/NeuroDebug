@@ -6,9 +6,7 @@ import { Copy, Check, Split, AlignJustify } from 'lucide-react'
 export default function DiffView({
   originalCode = '',
   patchedCode = '',
-  unifiedDiff = '',
   verdict = null,
-  validationPassed = true,
   validationError = null,
 }) {
   const [copied, setCopied] = useState(false)

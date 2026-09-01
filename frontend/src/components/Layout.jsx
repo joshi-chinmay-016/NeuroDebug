@@ -42,7 +42,7 @@ export default function Layout() {
           setUsage({ used: todaySessions.length, limit, tier })
           return
         }
-      } catch (err) {
+      } catch {
         // Fallback
       }
       setUsage((prev) => ({ ...prev, limit, tier }))

@@ -93,6 +93,13 @@ export default function Projects() {
         )}
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--red)]/10 border border-[var(--red)]/20 text-[var(--red)] text-xs font-mono">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Guest Lock Banner */}
       {!isAuthenticated && (
         <div className="card-hover rounded-2xl p-8 border border-[var(--line)] bg-[var(--surface-1)] space-y-5">

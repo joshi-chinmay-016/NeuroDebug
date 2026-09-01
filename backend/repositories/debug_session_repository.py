@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models import DebugSession
+from database.models import CandidatePatch, DebugSession, VerificationReport
 from repositories.base import BaseRepository
 
 
@@ -84,9 +84,11 @@ class DebugSessionRepository(BaseRepository[DebugSession, Any, Any]):
         error_type: str | None = None,
         confidence_score: float | None = None,
         pipeline_duration_ms: float | None = None,
+        candidate_patch: dict[str, Any] | None = None,
+        verification_report: dict[str, Any] | None = None,
     ) -> DebugSession:
         """
-        Create a new debug session.
+        Create a new debug session and optionally record associated candidate patches and verification reports.
 
         Args:
             session_id: Session ID string.
@@ -96,21 +98,71 @@ class DebugSessionRepository(BaseRepository[DebugSession, Any, Any]):
             error_type: Optional detected error type.
             confidence_score: Optional confidence score.
             pipeline_duration_ms: Optional pipeline duration in milliseconds.
+            candidate_patch: Optional candidate patch metadata dictionary.
+            verification_report: Optional verification report metadata dictionary.
 
         Returns:
-            Created DebugSession instance.
+            Created or updated DebugSession instance.
         """
-        debug_session = DebugSession(
-            session_id=session_id,
-            code=code,
-            user_id=user_id,
-            project_id=project_id,
-            error_type=error_type,
-            confidence_score=confidence_score,
-            pipeline_duration_ms=pipeline_duration_ms,
+        # Look for existing session with identical (session_id, code)
+        query = select(DebugSession).where(
+            DebugSession.session_id == session_id,
+            DebugSession.code == code,
         )
-        self.session.add(debug_session)
-        await self.session.flush()
+        result = await self.session.execute(query)
+        debug_session = result.scalar_one_or_none()
+
+        if debug_session is None:
+            debug_session = DebugSession(
+                session_id=session_id,
+                code=code,
+                user_id=user_id,
+                project_id=project_id,
+                error_type=error_type,
+                confidence_score=confidence_score,
+                pipeline_duration_ms=pipeline_duration_ms,
+            )
+            self.session.add(debug_session)
+            await self.session.flush()
+        else:
+            if error_type:
+                debug_session.error_type = error_type
+            if confidence_score is not None:
+                debug_session.confidence_score = confidence_score
+            if pipeline_duration_ms is not None:
+                debug_session.pipeline_duration_ms = pipeline_duration_ms
+            if user_id and not debug_session.user_id:
+                debug_session.user_id = user_id
+            if project_id and not debug_session.project_id:
+                debug_session.project_id = project_id
+            await self.session.flush()
+
+        if candidate_patch and isinstance(candidate_patch, dict):
+            patch = CandidatePatch(
+                debug_session_id=debug_session.id,
+                original_code=candidate_patch.get("original_code", code),
+                patched_code=candidate_patch.get("patched_code", code),
+                diff=candidate_patch.get("diff"),
+                validation_passed=bool(candidate_patch.get("validation_passed", True)),
+                explanation=candidate_patch.get("explanation"),
+                llm_model=candidate_patch.get("llm_model"),
+            )
+            self.session.add(patch)
+            await self.session.flush()
+
+            if verification_report and isinstance(verification_report, dict):
+                report = VerificationReport(
+                    debug_session_id=debug_session.id,
+                    candidate_patch_id=patch.id,
+                    verification_status=verification_report.get("verification_status", "VERIFIED"),
+                    execution_summary=verification_report.get("execution_summary", "Verification executed"),
+                    runtime_seconds=int(verification_report.get("runtime_seconds", 1)),
+                    failure_reason=verification_report.get("failure_reason"),
+                    evidence=verification_report.get("evidence") or {},
+                )
+                self.session.add(report)
+                await self.session.flush()
+
         await self.session.refresh(debug_session)
         return debug_session
 
